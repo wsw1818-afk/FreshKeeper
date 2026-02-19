@@ -49,14 +49,14 @@ export default function TemplateGrid({ templates, onSelect, selectedIds }: Templ
 
 const styles = StyleSheet.create({
   grid: { paddingHorizontal: 12, paddingBottom: 16 },
-  row: { justifyContent: 'space-between', marginBottom: 8 },
+  row: { justifyContent: 'space-between', marginBottom: 10 },
   templateItem: {
     flex: 1, maxWidth: '24%', aspectRatio: 1, borderRadius: 12,
-    alignItems: 'center', justifyContent: 'center', borderWidth: 1, padding: 4,
+    alignItems: 'center', justifyContent: 'center', borderWidth: 1, padding: 6,
   },
   templateItemPressed: { opacity: 0.7 },
-  templateIcon: { fontSize: 28, marginBottom: 4 },
-  templateName: { fontSize: 11, textAlign: 'center' },
+  templateIcon: { fontSize: 26, marginBottom: 6 },
+  templateName: { fontSize: 11, textAlign: 'center', lineHeight: 14 },
   checkMark: {
     position: 'absolute', top: 4, right: 4, width: 18, height: 18,
     borderRadius: 9, alignItems: 'center', justifyContent: 'center',
