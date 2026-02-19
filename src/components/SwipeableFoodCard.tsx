@@ -73,9 +73,9 @@ function SwipeableFoodCardInner({ item, onPress, onConsume }: SwipeableFoodCardP
           <Image source={{ uri: item.image_uri }} style={styles.thumbnail} />
         )}
         <View style={styles.leftSection}>
-          <Text style={[styles.name, { color: c.text }]}>{item.name}</Text>
+          <Text style={[styles.name, { color: c.text }]} numberOfLines={1}>{item.name}</Text>
           <View style={styles.metaRow}>
-            <Text style={[styles.metaText, { color: c.textSecondary }]}>
+            <Text style={[styles.metaText, { color: c.textSecondary }]} numberOfLines={1}>
               {STORAGE_LOCATION_ICON[item.location]} {STORAGE_LOCATION_LABEL[item.location]}
             </Text>
             {item.quantity > 1 && (
@@ -99,21 +99,21 @@ export default SwipeableFoodCard;
 
 const styles = StyleSheet.create({
   card: {
-    flexDirection: 'row', alignItems: 'center', padding: 16, marginHorizontal: 16, marginVertical: 4, borderRadius: 12,
+    flexDirection: 'row', alignItems: 'center', padding: 12, marginHorizontal: 12, marginVertical: 3, borderRadius: 10,
     elevation: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2,
   },
   cardPressed: { opacity: 0.7 },
-  thumbnail: { width: 40, height: 40, borderRadius: 8, marginRight: 10 },
-  leftSection: { flex: 1, gap: 4 },
-  rightSection: { marginLeft: 12 },
-  name: { fontSize: 16, fontWeight: '600' },
-  metaRow: { flexDirection: 'row', gap: 12 },
-  metaText: { fontSize: 13 },
-  dateText: { fontSize: 12 },
-  leftAction: { justifyContent: 'center', alignItems: 'center', width: 80, marginVertical: 4, marginLeft: 16, borderRadius: 12 },
-  rightActions: { flexDirection: 'row', marginVertical: 4, marginRight: 16 },
-  shareAction: { backgroundColor: '#2196F3', justifyContent: 'center', alignItems: 'center', width: 70, borderTopLeftRadius: 12, borderBottomLeftRadius: 12 },
-  discardAction: { justifyContent: 'center', alignItems: 'center', width: 70, borderTopRightRadius: 12, borderBottomRightRadius: 12 },
-  actionIcon: { fontSize: 24 },
-  actionText: { color: '#fff', fontSize: 12, fontWeight: '700', marginTop: 2 },
+  thumbnail: { width: 36, height: 36, borderRadius: 7, marginRight: 9 },
+  leftSection: { flex: 1, gap: 3, overflow: 'hidden' },
+  rightSection: { marginLeft: 10, flexShrink: 0 },
+  name: { fontSize: 15, fontWeight: '600' },
+  metaRow: { flexDirection: 'row', gap: 10 },
+  metaText: { fontSize: 12 },
+  dateText: { fontSize: 11 },
+  leftAction: { justifyContent: 'center', alignItems: 'center', width: 76, marginVertical: 3, marginLeft: 12, borderRadius: 10 },
+  rightActions: { flexDirection: 'row', marginVertical: 3, marginRight: 12 },
+  shareAction: { backgroundColor: '#2196F3', justifyContent: 'center', alignItems: 'center', width: 64, borderTopLeftRadius: 10, borderBottomLeftRadius: 10 },
+  discardAction: { justifyContent: 'center', alignItems: 'center', width: 64, borderTopRightRadius: 10, borderBottomRightRadius: 10 },
+  actionIcon: { fontSize: 22 },
+  actionText: { color: '#fff', fontSize: 11, fontWeight: '700', marginTop: 2 },
 });

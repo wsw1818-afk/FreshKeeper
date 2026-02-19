@@ -87,8 +87,8 @@ export default function HomeScreen() {
                 onPress={() => { setSearchQuery(''); router.push(`/item/${item.id}`); }}
               >
                 <View style={styles.searchResultLeft}>
-                  <Text style={[styles.searchResultName, { color: c.text }]}>{item.name}</Text>
-                  <Text style={[styles.searchResultMeta, { color: c.textSecondary }]}>
+                  <Text style={[styles.searchResultName, { color: c.text }]} numberOfLines={1}>{item.name}</Text>
+                  <Text style={[styles.searchResultMeta, { color: c.textSecondary }]} numberOfLines={1}>
                     {item.expires_at ?? '기한 미설정'}
                   </Text>
                 </View>
@@ -224,8 +224,8 @@ export default function HomeScreen() {
               onPress={() => router.push(`/item/${item.id}`)}
             >
               <View style={styles.urgentLeft}>
-                <Text style={[styles.urgentName, { color: c.text }]}>{item.name}</Text>
-                <Text style={[styles.urgentMeta, { color: c.textSecondary }]}>
+                <Text style={[styles.urgentName, { color: c.text }]} numberOfLines={1}>{item.name}</Text>
+                <Text style={[styles.urgentMeta, { color: c.textSecondary }]} numberOfLines={1}>
                   {item.expires_at ? `${item.expires_at}` : '기한 미설정'}
                 </Text>
               </View>
@@ -258,76 +258,76 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  content: { paddingBottom: 24 },
-  searchResults: { paddingHorizontal: 16, paddingTop: 8, gap: 6 },
+  content: { paddingBottom: 20 },
+  searchResults: { paddingHorizontal: 12, paddingTop: 6, gap: 4 },
   searchResultCard: {
-    flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 10,
+    flexDirection: 'row', alignItems: 'center', padding: 10, borderRadius: 8,
     elevation: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2,
   },
-  searchResultLeft: { flex: 1 },
+  searchResultLeft: { flex: 1, overflow: 'hidden', marginRight: 8 },
   searchResultName: { fontSize: 14, fontWeight: '600' },
-  searchResultMeta: { fontSize: 11, marginTop: 2 },
-  searchNoResult: { textAlign: 'center', paddingVertical: 16, fontSize: 14 },
-  statsContainer: { paddingHorizontal: 16, paddingTop: 12 },
+  searchResultMeta: { fontSize: 11, marginTop: 1 },
+  searchNoResult: { textAlign: 'center', paddingVertical: 12, fontSize: 13 },
+  statsContainer: { paddingHorizontal: 12, paddingTop: 10 },
   statsRow: { flexDirection: 'row', gap: 8 },
   statCard: {
-    flex: 1, borderRadius: 12, padding: 12, alignItems: 'center',
+    flex: 1, minWidth: 70, borderRadius: 10, padding: 12, alignItems: 'center',
     elevation: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2,
   },
-  statCount: { fontSize: 24, fontWeight: '800' },
-  statLabel: { fontSize: 12, marginTop: 2 },
+  statCount: { fontSize: 20, fontWeight: '800' },
+  statLabel: { fontSize: 11, marginTop: 2 },
   quickAddButton: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    marginHorizontal: 16, marginTop: 16, padding: 16, borderRadius: 12, gap: 8,
+    marginHorizontal: 12, marginTop: 12, padding: 13, borderRadius: 10, gap: 6,
   },
-  quickAddIcon: { fontSize: 20, color: '#fff' },
-  quickAddText: { fontSize: 16, fontWeight: '700', color: '#fff' },
-  section: { marginTop: 20, paddingHorizontal: 16 },
-  sectionTitle: { fontSize: 16, fontWeight: '700', marginBottom: 12 },
+  quickAddIcon: { fontSize: 18, color: '#fff' },
+  quickAddText: { fontSize: 15, fontWeight: '700', color: '#fff' },
+  section: { marginTop: 14, paddingHorizontal: 12 },
+  sectionTitle: { fontSize: 14, fontWeight: '700', marginBottom: 8 },
   urgentCard: {
-    flexDirection: 'row', alignItems: 'center', padding: 14, borderRadius: 10, marginBottom: 8,
+    flexDirection: 'row', alignItems: 'center', padding: 11, borderRadius: 9, marginBottom: 6,
     elevation: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2,
   },
-  urgentLeft: { flex: 1 },
-  urgentName: { fontSize: 15, fontWeight: '600' },
-  urgentMeta: { fontSize: 12, marginTop: 2 },
-  moreLink: { fontSize: 14, fontWeight: '600', textAlign: 'center', paddingVertical: 8 },
-  emptyUrgent: { alignItems: 'center', justifyContent: 'center', paddingVertical: 48, gap: 8 },
-  emptyIcon: { fontSize: 48 },
-  emptyText: { fontSize: 16, fontWeight: '600' },
-  emptySubText: { fontSize: 14 },
+  urgentLeft: { flex: 1, overflow: 'hidden', marginRight: 8 },
+  urgentName: { fontSize: 14, fontWeight: '600' },
+  urgentMeta: { fontSize: 11, marginTop: 1 },
+  moreLink: { fontSize: 13, fontWeight: '600', textAlign: 'center', paddingVertical: 6 },
+  emptyUrgent: { alignItems: 'center', justifyContent: 'center', paddingVertical: 36, gap: 6 },
+  emptyIcon: { fontSize: 40 },
+  emptyText: { fontSize: 15, fontWeight: '600' },
+  emptySubText: { fontSize: 13 },
   tipCard: {
-    flexDirection: 'row', alignItems: 'center', marginHorizontal: 16, marginTop: 12,
-    padding: 12, borderRadius: 10, gap: 8,
+    flexDirection: 'row', alignItems: 'center', marginHorizontal: 12, marginTop: 10,
+    padding: 10, borderRadius: 9, gap: 8,
     elevation: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2,
   },
-  tipIcon: { fontSize: 20 },
-  tipText: { flex: 1, fontSize: 13, fontWeight: '500', lineHeight: 18 },
-  locationRow: { flexDirection: 'row', paddingHorizontal: 16, paddingTop: 12, gap: 8 },
+  tipIcon: { fontSize: 18 },
+  tipText: { flex: 1, fontSize: 12, fontWeight: '500', lineHeight: 17 },
+  locationRow: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 12, paddingTop: 10, gap: 8 },
   locationChip: {
-    flex: 1, alignItems: 'center', padding: 10, borderRadius: 10,
+    minWidth: 72, alignItems: 'center', paddingVertical: 10, paddingHorizontal: 12, borderRadius: 10,
     elevation: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2,
   },
   locationIcon: { fontSize: 20 },
-  locationCount: { fontSize: 18, fontWeight: '800', marginTop: 2 },
-  locationLabel: { fontSize: 11, marginTop: 1 },
+  locationCount: { fontSize: 18, fontWeight: '800', marginTop: 4 },
+  locationLabel: { fontSize: 11, marginTop: 2 },
   categorySummaryCard: {
-    marginHorizontal: 16, marginTop: 12, padding: 14, borderRadius: 12,
+    marginHorizontal: 12, marginTop: 10, padding: 14, borderRadius: 10,
     elevation: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2,
   },
-  categorySummaryTitle: { fontSize: 14, fontWeight: '700', marginBottom: 8 },
-  categorySummaryList: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  categorySummaryItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  categorySummaryTitle: { fontSize: 14, fontWeight: '700', marginBottom: 10 },
+  categorySummaryList: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  categorySummaryItem: { flexDirection: 'row', alignItems: 'center', gap: 4, minWidth: 80 },
   categorySummaryLabel: { fontSize: 12 },
   categorySummaryCount: { fontSize: 12, fontWeight: '700' },
   outcomeSummary: {
-    marginHorizontal: 16, marginTop: 16, padding: 16, borderRadius: 12,
+    marginHorizontal: 12, marginTop: 10, padding: 14, borderRadius: 10,
     elevation: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2,
   },
   outcomeSummaryTitle: { fontSize: 14, fontWeight: '700', marginBottom: 10 },
-  outcomeBarRow: { marginBottom: 8 },
+  outcomeBarRow: { marginBottom: 10 },
   outcomeBar: { flexDirection: 'row', height: 10, borderRadius: 5, overflow: 'hidden' },
   outcomeSegment: { height: '100%' },
-  outcomeLegend: { flexDirection: 'row', justifyContent: 'space-around' },
+  outcomeLegend: { flexDirection: 'row', justifyContent: 'space-around', flexWrap: 'wrap', gap: 8 },
   outcomeLegendItem: { fontSize: 12 },
 });

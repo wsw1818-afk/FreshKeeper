@@ -49,9 +49,9 @@ export default function TemplateGrid({ templates, onSelect, selectedIds }: Templ
 
 const styles = StyleSheet.create({
   grid: { paddingHorizontal: 12, paddingBottom: 16 },
-  row: { justifyContent: 'flex-start', gap: 8, marginBottom: 8 },
+  row: { justifyContent: 'space-between', marginBottom: 8 },
   templateItem: {
-    width: '23%', aspectRatio: 1, borderRadius: 12,
+    flex: 1, maxWidth: '24%', aspectRatio: 1, borderRadius: 12,
     alignItems: 'center', justifyContent: 'center', borderWidth: 1, padding: 4,
   },
   templateItemPressed: { opacity: 0.7 },

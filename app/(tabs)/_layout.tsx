@@ -5,7 +5,7 @@ import { useColors } from '@/hooks/useColors';
 import GlobalSearchBar from '@/components/GlobalSearchBar';
 
 function TabIcon({ emoji }: { emoji: string }) {
-  return <Text style={{ fontSize: 22 }}>{emoji}</Text>;
+  return <Text style={{ fontSize: 20 }}>{emoji}</Text>;
 }
 
 export default function TabLayout() {
@@ -19,13 +19,16 @@ export default function TabLayout() {
         tabBarStyle: {
           backgroundColor: colors.surface,
           borderTopColor: colors.divider,
-          height: 60,
-          paddingBottom: 8,
+          height: 56,
+          paddingBottom: 6,
           paddingTop: 4,
         },
         tabBarLabelStyle: {
-          fontSize: 11,
+          fontSize: 10,
           fontWeight: '600',
+        },
+        tabBarIconStyle: {
+          marginBottom: -2,
         },
         headerStyle: {
           backgroundColor: colors.surface,
@@ -33,6 +36,7 @@ export default function TabLayout() {
         headerTitleStyle: {
           color: colors.text,
           fontWeight: '700',
+          fontSize: 16,
         },
       }}
     >

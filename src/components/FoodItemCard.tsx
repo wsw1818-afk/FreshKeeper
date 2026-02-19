@@ -2,9 +2,9 @@ import React from 'react';
 import { View, Text, StyleSheet, Pressable, Image } from 'react-native';
 import type { FoodItem } from '@/types';
 import { STORAGE_LOCATION_ICON, STORAGE_LOCATION_LABEL } from '@/types';
-import { Colors } from '@/constants/colors';
 import { calculateStatus } from '@/lib/statusCalculator';
 import { formatDisplayDate } from '@/lib/dateUtils';
+import { useColors } from '@/hooks/useColors';
 import StatusBadge from './StatusBadge';
 
 interface FoodItemCardProps {
@@ -17,10 +17,15 @@ function FoodItemCardInner({ item, onPress, onLongPress }: FoodItemCardProps) {
   const { status, dDay } = calculateStatus(item);
   const locationIcon = STORAGE_LOCATION_ICON[item.location];
   const locationLabel = STORAGE_LOCATION_LABEL[item.location];
+  const c = useColors();
 
   return (
     <Pressable
-      style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
+      style={({ pressed }) => [
+        styles.card,
+        { backgroundColor: c.surface, shadowColor: c.black },
+        pressed && styles.cardPressed,
+      ]}
       onPress={() => onPress?.(item)}
       onLongPress={() => onLongPress?.(item)}
     >
@@ -28,19 +33,19 @@ function FoodItemCardInner({ item, onPress, onLongPress }: FoodItemCardProps) {
         <Image source={{ uri: item.image_uri }} style={styles.thumbnail} />
       )}
       <View style={styles.leftSection}>
-        <Text style={styles.name}>{item.name}</Text>
+        <Text style={[styles.name, { color: c.text }]} numberOfLines={1}>{item.name}</Text>
         <View style={styles.metaRow}>
-          <Text style={styles.metaText}>
+          <Text style={[styles.metaText, { color: c.textSecondary }]} numberOfLines={1}>
             {locationIcon} {locationLabel}
           </Text>
           {item.quantity > 1 && (
-            <Text style={styles.metaText}>
+            <Text style={[styles.metaText, { color: c.textSecondary }]}>
               {item.quantity}{item.unit}
             </Text>
           )}
         </View>
         {item.expires_at && (
-          <Text style={styles.dateText}>
+          <Text style={[styles.dateText, { color: c.textSecondary }]}>
             {formatDisplayDate(item.expires_at)}까지
           </Text>
         )}
@@ -59,13 +64,11 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.surface,
     padding: 16,
     marginHorizontal: 16,
     marginVertical: 4,
     borderRadius: 12,
     elevation: 1,
-    shadowColor: Colors.black,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 2,
@@ -82,14 +85,15 @@ const styles = StyleSheet.create({
   leftSection: {
     flex: 1,
     gap: 4,
+    overflow: 'hidden',
   },
   rightSection: {
     marginLeft: 12,
+    flexShrink: 0,
   },
   name: {
     fontSize: 16,
     fontWeight: '600',
-    color: Colors.text,
   },
   metaRow: {
     flexDirection: 'row',
@@ -97,10 +101,8 @@ const styles = StyleSheet.create({
   },
   metaText: {
     fontSize: 13,
-    color: Colors.textSecondary,
   },
   dateText: {
     fontSize: 12,
-    color: Colors.textSecondary,
   },
 });

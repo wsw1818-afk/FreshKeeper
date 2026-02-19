@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, TextInput, Pressable, Text, StyleSheet } from 'react-native';
+import { View, TextInput, Pressable, Text, StyleSheet, Platform } from 'react-native';
 import { useFoodStore } from '@/hooks/useFoodStore';
 import { useColors } from '@/hooks/useColors';
 
@@ -18,7 +18,7 @@ export default function GlobalSearchBar() {
         value={searchQuery}
         onChangeText={setSearchQuery}
         returnKeyType="search"
-        clearButtonMode="while-editing"
+        clearButtonMode={Platform.OS === 'ios' ? 'while-editing' : 'never'}
         accessibilityLabel="식재료 검색 입력창"
         accessibilityHint="검색할 식재료 이름을 입력하세요"
       />
@@ -28,6 +28,7 @@ export default function GlobalSearchBar() {
           style={styles.clear}
           accessibilityLabel="검색어 지우기"
           accessibilityRole="button"
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
           <Text style={styles.clearIcon}>✕</Text>
         </Pressable>
@@ -40,15 +41,15 @@ const styles = StyleSheet.create({
   wrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 10,
+    borderRadius: 8,
     borderWidth: 1,
-    paddingHorizontal: 10,
-    height: 38,
+    paddingHorizontal: 8,
+    height: 36,
     flex: 1,
-    marginHorizontal: 4,
+    marginHorizontal: 2,
   },
-  icon: { fontSize: 14, marginRight: 6 },
+  icon: { fontSize: 13, marginRight: 5 },
   input: { flex: 1, fontSize: 14, paddingVertical: 0 },
-  clear: { padding: 3 },
-  clearIcon: { fontSize: 14, color: '#999' },
+  clear: { padding: 2 },
+  clearIcon: { fontSize: 13, color: '#999' },
 });
