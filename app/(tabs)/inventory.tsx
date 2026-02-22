@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useCallback, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, Pressable, Alert, ScrollView, Animated } from 'react-native';
+import { View, Text, StyleSheet, FlatList, Pressable, Alert, Animated } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useRouter, Link } from 'expo-router';
 import { useFoodStore, useFilteredItems } from '@/hooks/useFoodStore';
@@ -138,23 +138,9 @@ export default function InventoryScreen() {
     router.push(`/item/${item.id}`);
   }, [router]);
 
-  const handleConsume = useCallback((item: FoodItem, outcome: Outcome) => {
-    const label = OUTCOME_LABEL[outcome];
-    Alert.alert(
-      label,
-      `"${item.name}"을(를) ${label} 처리할까요?`,
-      [
-        { text: '취소', style: 'cancel' },
-        {
-          text: label,
-          style: outcome === Outcome.DISCARD ? 'destructive' : 'default',
-          onPress: async () => {
-            await consumeItem(item.id, outcome);
-            showSnackbar(item, outcome);
-          },
-        },
-      ],
-    );
+  const handleConsume = useCallback(async (item: FoodItem, outcome: Outcome) => {
+    await consumeItem(item.id, outcome);
+    showSnackbar(item, outcome);
   }, [consumeItem, showSnackbar]);
 
   const renderItem = useCallback(({ item }: { item: FoodItem }) => (
@@ -188,11 +174,14 @@ export default function InventoryScreen() {
             ]}
             onPress={() => setSortMode(mode)}
           >
-            <Text style={[
-              styles.sortText,
-              { color: c.textSecondary },
-              sortMode === mode && { color: '#fff', fontWeight: '600' },
-            ]}>
+            <Text
+              style={[
+                styles.sortText,
+                { color: c.textSecondary },
+                sortMode === mode && { color: '#fff', fontWeight: '600' },
+              ]}
+              allowFontScaling={false}
+            >
               {mode === 'expiry' ? '만료순' : mode === 'status' ? '위험순' : mode === 'name' ? '이름순' : '입고순'}
             </Text>
           </Pressable>
@@ -202,7 +191,7 @@ export default function InventoryScreen() {
             style={[styles.bulkDiscardChip, { backgroundColor: c.status.expired }]}
             onPress={handleBulkDiscard}
           >
-            <Text style={styles.bulkDiscardText}>
+            <Text style={styles.bulkDiscardText} allowFontScaling={false}>
               만료 {expiredItems.length}개 폐기
             </Text>
           </Pressable>
@@ -211,7 +200,7 @@ export default function InventoryScreen() {
 
       {/* 카테고리 필터 */}
       {availableCategories.length > 1 && (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryRow}>
+        <View style={styles.categoryRow}>
           <Pressable
             style={[
               styles.catChip,
@@ -237,7 +226,7 @@ export default function InventoryScreen() {
               </Text>
             </Pressable>
           ))}
-        </ScrollView>
+        </View>
       )}
 
       {/* 목록 */}
@@ -298,19 +287,19 @@ export default function InventoryScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  sortRow: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 12, paddingVertical: 6, gap: 5 },
-  sortChip: { paddingHorizontal: 9, paddingVertical: 4, borderRadius: 10, borderWidth: 1 },
-  sortText: { fontSize: 11 },
-  bulkDiscardChip: { paddingHorizontal: 9, paddingVertical: 4, borderRadius: 10 },
-  bulkDiscardText: { fontSize: 11, color: '#fff', fontWeight: '600' },
-  categoryRow: { flexDirection: 'row', paddingHorizontal: 12, paddingBottom: 6, gap: 5 },
-  catChip: { paddingHorizontal: 9, paddingVertical: 4, borderRadius: 10, borderWidth: 1 },
-  catText: { fontSize: 11 },
-  list: { paddingBottom: 12 },
+  sortRow: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 12, paddingVertical: 8, gap: 8 },
+  sortChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 12, borderWidth: 1, overflow: 'visible' as const },
+  sortText: { fontSize: 13 },
+  bulkDiscardChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 12 },
+  bulkDiscardText: { fontSize: 13, color: '#fff', fontWeight: '600' },
+  categoryRow: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 12, paddingBottom: 8, gap: 8 },
+  catChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 12, borderWidth: 1, overflow: 'visible' as const },
+  catText: { fontSize: 13 },
+  list: { paddingBottom: 16 },
   empty: { alignItems: 'center', paddingVertical: 40, gap: 8, paddingHorizontal: 32 },
   emptyIcon: { fontSize: 48 },
   emptyTitle: { fontSize: 16, fontWeight: '700' },
-  emptyDesc: { fontSize: 13, textAlign: 'center', lineHeight: 20 },
+  emptyDesc: { fontSize: 13, textAlign: 'center' },
   emptyCta: { marginTop: 8, paddingHorizontal: 22, paddingVertical: 11, borderRadius: 10 },
   emptyCtaText: { fontSize: 14, fontWeight: '700', color: '#fff' },
   snackbar: {

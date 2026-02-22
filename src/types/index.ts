@@ -54,7 +54,7 @@ export interface FoodItem {
   id: string;
   name: string;
   category: FoodCategory;
-  location: StorageLocation;
+  location: StorageLocation | string; // 시스템 냉장고(StorageLocation) + 사용자 정의 냉장고(string ID)
   image_uri: string | null;
 
   quantity: number;
@@ -142,16 +142,28 @@ export interface ConsumptionHistory {
   created_at: string;
 }
 
+export interface StorageLocationItem {
+  id: string;
+  name: string;
+  icon: string;
+  color: string;
+  sort_order: number;
+  is_default: boolean;
+  is_system: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 // === Display helpers ===
 
-export const STORAGE_LOCATION_LABEL: Record<StorageLocation, string> = {
-  [StorageLocation.FRIDGE]: '냉장',
-  [StorageLocation.FREEZER]: '냉동',
+export const STORAGE_LOCATION_LABEL: Record<string, string> = {
+  [StorageLocation.FRIDGE]: '냉장고',
+  [StorageLocation.FREEZER]: '냉동고',
   [StorageLocation.PANTRY]: '실온',
   [StorageLocation.KIMCHI_FRIDGE]: '김치냉장고',
 };
 
-export const STORAGE_LOCATION_ICON: Record<StorageLocation, string> = {
+export const STORAGE_LOCATION_ICON: Record<string, string> = {
   [StorageLocation.FRIDGE]: '❄️',
   [StorageLocation.FREEZER]: '🧊',
   [StorageLocation.PANTRY]: '🏠',
@@ -175,6 +187,25 @@ export const FOOD_CATEGORY_LABEL: Record<FoodCategory, string> = {
   [FoodCategory.BREAD]: '빵/베이커리',
   [FoodCategory.PROCESSED]: '가공식품',
   [FoodCategory.OTHERS]: '기타',
+};
+
+export const FOOD_CATEGORY_EMOJI: Record<FoodCategory, string> = {
+  [FoodCategory.DAIRY]: '🥛',
+  [FoodCategory.MEAT]: '🥩',
+  [FoodCategory.POULTRY]: '🍗',
+  [FoodCategory.SEAFOOD]: '🦐',
+  [FoodCategory.VEGETABLE]: '🥬',
+  [FoodCategory.FRUIT]: '🍎',
+  [FoodCategory.COOKED]: '🍱',
+  [FoodCategory.SIDE_DISH]: '🥗',
+  [FoodCategory.FERMENTED]: '🫙',
+  [FoodCategory.FROZEN_FOOD]: '🧊',
+  [FoodCategory.BEVERAGE]: '🥤',
+  [FoodCategory.SAUCE]: '🧴',
+  [FoodCategory.GRAIN]: '🌾',
+  [FoodCategory.BREAD]: '🍞',
+  [FoodCategory.PROCESSED]: '🥫',
+  [FoodCategory.OTHERS]: '🍽️',
 };
 
 export const DATE_TYPE_LABEL: Record<DateType, string> = {

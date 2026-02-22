@@ -15,6 +15,7 @@ import {
   buildNotificationContent,
   type ScheduledAlert,
 } from '@/lib/notificationHelpers';
+import logger from '@/lib/logger';
 export type { ScheduledAlert } from '@/lib/notificationHelpers';
 export { getNotificationTime, isInQuietHours, buildNotificationContent } from '@/lib/notificationHelpers';
 
@@ -154,7 +155,7 @@ export async function rescheduleAllNotifications(
       });
       scheduledCount++;
     } catch (e) {
-      console.warn('알림 스케줄 실패:', alert.itemName, e);
+      logger.warn('알림 스케줄 실패:', alert.itemName, e);
     }
   }
 
@@ -252,7 +253,7 @@ export async function updateItemNotifications(
         },
       });
     } catch (e) {
-      console.warn('알림 스케줄 실패:', item.name, e);
+      logger.warn('알림 스케줄 실패:', item.name, e);
     }
   }
 
@@ -328,7 +329,7 @@ async function scheduleDailySummary(
       },
     });
   } catch (e) {
-    console.warn('요약 알림 스케줄 실패:', e);
+    logger.warn('요약 알림 스케줄 실패:', e);
   }
 }
 

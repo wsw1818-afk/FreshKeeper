@@ -45,10 +45,10 @@ export default function StatusBadge({ status, dDay, size = 'medium' }: StatusBad
 }
 
 const styles = StyleSheet.create({
-  badge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, gap: 4, minWidth: 72 },
-  badgeSmall: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8, minWidth: 54 },
-  icon: { fontSize: 14 },
-  iconSmall: { fontSize: 10 },
-  text: { fontSize: 13, fontWeight: '700' },
-  textSmall: { fontSize: 11 },
+  badge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, gap: 4 },
+  badgeSmall: { paddingHorizontal: 6, paddingVertical: 4, borderRadius: 8, gap: 3 },
+  icon: { fontSize: 14, lineHeight: 20 },
+  iconSmall: { fontSize: 11, lineHeight: 16 },
+  text: { fontSize: 13, fontWeight: '700', lineHeight: 18 },
+  textSmall: { fontSize: 11, lineHeight: 16 },
 });

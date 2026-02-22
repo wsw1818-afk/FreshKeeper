@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { FoodItem, FoodTemplate, NotificationSettings, StorageLocation, Outcome } from '@/types';
+import type { FoodItem, FoodTemplate, NotificationSettings, StorageLocation, StorageLocationItem, Outcome } from '@/types';
 import {
   getActiveFoodItems,
   insertFoodItem,
@@ -12,16 +12,20 @@ import {
   addConsumptionHistory,
   getNotificationSettings,
   updateNotificationSettings as repoUpdateNotificationSettings,
+  getStorageLocations,
+  insertStorageLocation,
 } from '@/lib/repository';
 import { calculateStatus } from '@/lib/statusCalculator';
 import { calculateDDay, calculateExpiryDate, getToday } from '@/lib/dateUtils';
 import { DEFAULT_NOTIFICATION_SETTINGS } from '@/constants/config';
 import { updateItemNotifications, cancelItemNotifications } from '@/lib/notificationScheduler';
+import logger from '@/lib/logger';
 
 interface FoodStore {
   // State
   items: FoodItem[];
   templates: FoodTemplate[];
+  storageLocations: StorageLocationItem[];
   isLoading: boolean;
   selectedLocation: StorageLocation | 'ALL';
   notificationSettings: NotificationSettings;
@@ -30,6 +34,7 @@ interface FoodStore {
   // Actions
   loadItems: () => Promise<void>;
   loadTemplates: () => Promise<void>;
+  loadStorageLocations: () => Promise<void>;
   loadNotificationSettings: () => Promise<void>;
   updateNotificationSettings: (updates: Partial<NotificationSettings>) => Promise<void>;
   addItem: (item: Omit<FoodItem, 'id' | 'created_at' | 'updated_at'>) => Promise<FoodItem>;
@@ -40,15 +45,22 @@ interface FoodStore {
   searchItems: (query: string) => Promise<FoodItem[]>;
   setSelectedLocation: (location: StorageLocation | 'ALL') => void;
   setGlobalSearchQuery: (query: string) => void;
+  addStorageLocation: (location: Omit<StorageLocationItem, 'id' | 'created_at' | 'updated_at'>) => Promise<StorageLocationItem>;
 }
 
 export const useFoodStore = create<FoodStore>((set, get) => ({
   items: [],
   templates: [],
+  storageLocations: [],
   isLoading: false,
   selectedLocation: 'ALL',
   notificationSettings: DEFAULT_NOTIFICATION_SETTINGS,
   globalSearchQuery: '',
+
+  loadStorageLocations: async () => {
+    const locations = await getStorageLocations();
+    set({ storageLocations: locations });
+  },
 
   loadNotificationSettings: async () => {
     const settings = await getNotificationSettings();
@@ -66,6 +78,7 @@ export const useFoodStore = create<FoodStore>((set, get) => ({
     set({ isLoading: true });
     try {
       const items = await getActiveFoodItems();
+      logger.info(`Loaded ${items.length} active food items`);
       set({ items });
     } finally {
       set({ isLoading: false });
@@ -80,6 +93,7 @@ export const useFoodStore = create<FoodStore>((set, get) => ({
 
   addItem: async (itemData) => {
     const newItem = await insertFoodItem(itemData);
+    logger.info(`Added new item: ${newItem.name} (${newItem.location})`);
     set((state) => ({ items: [...state.items, newItem] }));
     // 알림 스케줄링
     await updateItemNotifications(newItem, get().notificationSettings);
@@ -92,20 +106,27 @@ export const useFoodStore = create<FoodStore>((set, get) => ({
 
     // 보관 위치에 맞는 기본 보관일 결정
     let freshnessDays: number | null = null;
-    switch (location) {
-      case 'FRIDGE':
-        freshnessDays = template.fridge_days_min;
-        break;
-      case 'FREEZER':
-        freshnessDays = template.freezer_days_min;
-        break;
-      case 'PANTRY':
-        freshnessDays = template.pantry_days_min;
-        break;
-      case 'KIMCHI_FRIDGE':
-        freshnessDays = template.kimchi_fridge_days_min;
-        break;
+
+    logger.debug('Template location', { location, template: template.name });
+    logger.debug('Template freshness data', {
+      fridge: template.fridge_days_min,
+      freezer: template.freezer_days_min,
+      pantry: template.pantry_days_min,
+      kimchi_fridge: template.kimchi_fridge_days_min,
+    });
+
+    // 문자열 비교로 변경 (enum이 문자열 기반)
+    if (location === 'FRIDGE') {
+      freshnessDays = template.fridge_days_min;
+    } else if (location === 'FREEZER') {
+      freshnessDays = template.freezer_days_min;
+    } else if (location === 'PANTRY') {
+      freshnessDays = template.pantry_days_min;
+    } else if (location === 'KIMCHI_FRIDGE') {
+      freshnessDays = template.kimchi_fridge_days_min;
     }
+
+    logger.info('Selected freshness days:', freshnessDays, 'for', location);
 
     const expiresAt = freshnessDays ? calculateExpiryDate(today, freshnessDays) : null;
 
@@ -161,9 +182,12 @@ export const useFoodStore = create<FoodStore>((set, get) => ({
   removeItem: async (id) => {
     await cancelItemNotifications(id);
     await deleteFoodItem(id);
-    set((state) => ({
-      items: state.items.filter((item) => item.id !== id),
-    }));
+    // ScreenStackFragment 에러 방지: 현재 렌더링 사이클 이후 상태 업데이트
+    setTimeout(() => {
+      set((state) => ({
+        items: state.items.filter((item) => item.id !== id),
+      }));
+    }, 0);
   },
 
   consumeItem: async (id, outcome) => {
@@ -172,6 +196,8 @@ export const useFoodStore = create<FoodStore>((set, get) => ({
 
     const today = getToday();
     const dDay = item.expires_at ? calculateDDay(item.expires_at) : 0;
+
+    logger.info(`Consumed item: ${item.name} - Outcome: ${outcome}, D-Day: ${dDay}`);
 
     await cancelItemNotifications(id);
     await updateFoodItem(id, { consumed_at: today, outcome });
@@ -184,9 +210,12 @@ export const useFoodStore = create<FoodStore>((set, get) => ({
       consumed_at: today,
     });
 
-    set((state) => ({
-      items: state.items.filter((i) => i.id !== id),
-    }));
+    // ScreenStackFragment 에러 방지: 현재 렌더링 사이클 이후 상태 업데이트
+    setTimeout(() => {
+      set((state) => ({
+        items: state.items.filter((i) => i.id !== id),
+      }));
+    }, 0);
   },
 
   searchItems: async (query) => {
@@ -199,6 +228,14 @@ export const useFoodStore = create<FoodStore>((set, get) => ({
 
   setGlobalSearchQuery: (query) => {
     set({ globalSearchQuery: query });
+  },
+
+  addStorageLocation: async (location) => {
+    const newLocation = await insertStorageLocation(location);
+    set((state) => ({
+      storageLocations: [...state.storageLocations, newLocation],
+    }));
+    return newLocation;
   },
 }));
 

@@ -70,7 +70,6 @@ export default function StatsScreen() {
       { icon: '💯', title: '100개 달성', desc: '누적 소비 100건 달성', earned: outcomeStats.total >= 100 },
       { icon: '♻️', title: '제로 웨이스트', desc: '폐기율 0% (5건 이상)', earned: outcomeStats.total >= 5 && discardRate === 0 },
       { icon: '🌿', title: '절약왕', desc: '폐기율 10% 이하 (10건 이상)', earned: outcomeStats.total >= 10 && discardRate <= 10 },
-      { icon: '🤝', title: '나눔의 달인', desc: '나눔 5건 이상', earned: outcomeStats.share >= 5 },
     ];
     return result;
   }, [outcomeStats, discardRate]);
@@ -93,7 +92,7 @@ export default function StatsScreen() {
       <View style={[styles.emptyContainer, { backgroundColor: c.background }]}>
         <Text style={styles.emptyIcon}>📊</Text>
         <Text style={[styles.emptyTitle, { color: c.text }]}>아직 소비 이력이 없습니다</Text>
-        <Text style={[styles.emptyDesc, { color: c.textSecondary }]}>식재료를 먹음/폐기/나눔 처리하면{'\n'}통계가 여기에 표시됩니다.</Text>
+        <Text style={[styles.emptyDesc, { color: c.textSecondary }]}>식재료를 먹음/폐기 처리하면{'\n'}통계가 여기에 표시됩니다.</Text>
       </View>
     );
   }
@@ -112,7 +111,6 @@ export default function StatsScreen() {
             <SummaryItem label="총 소비" value={outcomeStats.total} unit="건" color={c.text} secondaryColor={c.textSecondary} />
             <SummaryItem label="먹음" value={outcomeStats.eat} unit="건" color={OUTCOME_COLORS.eat} secondaryColor={c.textSecondary} />
             <SummaryItem label="폐기" value={outcomeStats.discard} unit="건" color={OUTCOME_COLORS.discard} secondaryColor={c.textSecondary} />
-            <SummaryItem label="나눔" value={outcomeStats.share} unit="건" color={OUTCOME_COLORS.share} secondaryColor={c.textSecondary} />
           </View>
         </View>
       </View>
@@ -133,7 +131,6 @@ export default function StatsScreen() {
           <View style={styles.rateLegend}>
             <LegendItem color={OUTCOME_COLORS.eat} label={`먹음 ${eatRate}%`} textColor={c.textSecondary} />
             <LegendItem color={OUTCOME_COLORS.discard} label={`폐기 ${discardRate}%`} textColor={c.textSecondary} />
-            <LegendItem color={OUTCOME_COLORS.share} label={`나눔 ${outcomeStats.total > 0 ? 100 - eatRate - discardRate : 0}%`} textColor={c.textSecondary} />
           </View>
           {discardRate > 20 && (
             <View style={styles.tipBox}>
@@ -246,7 +243,7 @@ export default function StatsScreen() {
             {avgDDay.map((item) => (
               <View key={item.outcome} style={styles.avgRow}>
                 <Text style={[styles.avgLabel, { color: c.text }]}>
-                  {item.outcome === 'EAT' ? '😋 먹음' : item.outcome === 'DISCARD' ? '🗑️ 폐기' : '🤝 나눔'}
+                  {item.outcome === 'EAT' ? '😋 먹음' : '🗑️ 폐기'}
                 </Text>
                 <Text style={[styles.avgValue, { color: item.avg_dday < 0 ? c.status.danger : c.status.safe }]}>
                   D{item.avg_dday >= 0 ? '-' : '+'}{Math.abs(Math.round(item.avg_dday))}

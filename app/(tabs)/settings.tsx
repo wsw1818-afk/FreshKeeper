@@ -1,10 +1,25 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Alert, Switch } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, Pressable, Alert, Switch, TextInput } from 'react-native';
+import { useRouter } from 'expo-router';
 import { useColors } from '@/hooks/useColors';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useFoodStore } from '@/hooks/useFoodStore';
 import { rescheduleAllNotifications, getScheduledNotificationCount } from '@/lib/notificationScheduler';
 import { exportBackup, importBackup } from '@/lib/backupRestore';
+import {
+  type AIProvider,
+  AI_PROVIDER_LABELS,
+  AI_PROVIDER_COST,
+  AI_PROVIDER_URL,
+  AI_MODEL_INFO,
+  OCR_RECOMMENDATION_RANK,
+  getRecommendationLabel,
+  validateAPIKeyFormat,
+  getAIProvider,
+  saveAIProvider,
+  getAPIKey,
+  saveAPIKey,
+} from '@/lib/aiApiConfig';
 
 const TIME_OPTIONS = ['07:00', '08:00', '09:00', '10:00', '12:00'];
 const QUIET_START_OPTIONS = ['21:00', '22:00', '23:00'];
@@ -14,6 +29,7 @@ type ThemeMode = 'light' | 'dark' | 'system';
 
 export default function SettingsScreen() {
   const c = useColors();
+  const router = useRouter();
   const { mode: themeMode, setMode: setThemeMode } = useTheme();
   const totalItems = useFoodStore((s) => s.items.length);
   const totalTemplates = useFoodStore((s) => s.templates.length);
@@ -23,6 +39,22 @@ export default function SettingsScreen() {
   const [scheduledCount, setScheduledCount] = useState<number | null>(null);
   const loadItems = useFoodStore((s) => s.loadItems);
   const loadNotificationSettings = useFoodStore((s) => s.loadNotificationSettings);
+
+  // AI API 설정 상태
+  const [aiProvider, setAiProvider] = useState<AIProvider>('none');
+  const [aiApiKey, setAiApiKey] = useState('');
+  const [aiApiKeyInput, setAiApiKeyInput] = useState('');
+  const [isAiKeySaving, setIsAiKeySaving] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const provider = await getAIProvider();
+      const key = await getAPIKey(provider);
+      setAiProvider(provider);
+      setAiApiKey(key);
+      setAiApiKeyInput(key);
+    })();
+  }, []);
 
   const handleToggle = async (key: 'summary_enabled' | 'urgent_enabled' | 'quiet_hours_enabled', value: boolean) => {
     await updateSettings({ [key]: value });
@@ -54,6 +86,82 @@ export default function SettingsScreen() {
   };
 
   const themeLabel = themeMode === 'system' ? '시스템 설정' : themeMode === 'light' ? '라이트' : '다크';
+
+  // 추천 순서로 프로바이더 정렬
+  const PROVIDERS: AIProvider[] = [...OCR_RECOMMENDATION_RANK];
+
+  const handleAIProviderPick = () => {
+    const options = PROVIDERS.map((p) => {
+      const info = AI_MODEL_INFO[p];
+      const label = getRecommendationLabel(p);
+      const costLabel = p === 'none' ? '물뵤' : info.cost;
+      return {
+        text: `${label ? `${label}\n` : ''}${info.name} - ${costLabel}${p === aiProvider ? ' ✓' : ''}`,
+        onPress: async () => {
+          await saveAIProvider(p);
+          const key = await getAPIKey(p);
+          setAiProvider(p);
+          setAiApiKey(key);
+          setAiApiKeyInput(key);
+        },
+      };
+    });
+
+    Alert.alert(
+      '🤖 AI OCR 프로바이더 선택',
+      '유통기한 인식에 사용할 AI 모델을 선택하세요.\n\n💡 추천: Gemini (물뵤 티어 넉넉)',
+      [
+        ...options,
+        { text: '취소', style: 'cancel' as const },
+      ]
+    );
+  };
+
+  const handleShowModelInfo = () => {
+    const info = AI_MODEL_INFO[aiProvider];
+    if (aiProvider === 'none') {
+      Alert.alert(
+        '오프라인 모드',
+        '인터넷 연결 없이 텍스트 패턴 인식만 사용합니다.\n\n정확도가 제한적이며, 복잡한 이미지는 인식하지 못할 수 있습니다.'
+      );
+      return;
+    }
+
+    Alert.alert(
+      `${info.name} 상세 정보`,
+      `제공사: ${info.provider}\n` +
+      `가격: ${info.cost}\n` +
+      `OCR 정확도: ${info.ocrAccuracy === 'excellent' ? '최우수 ⭐⭐⭐' : info.ocrAccuracy === 'good' ? '우수 ⭐⭐' : '보통 ⭐'}\n` +
+      `물뵤 티어: ${info.freeTier}\n\n` +
+      `장점:\n${info.pros.map(p => `• ${p}`).join('\n')}\n\n` +
+      `가입: ${info.signupUrl}`
+    );
+  };
+
+  const handleAISaveKey = async () => {
+    if (aiProvider === 'none') return;
+
+    // 키 형식 검증
+    if (!validateAPIKeyFormat(aiProvider, aiApiKeyInput)) {
+      Alert.alert(
+        'API 키 형식 오류',
+        '입력하신 키가 올바른 형식이 아닙니다.\n\n' +
+        '제공사에서 발급받은 올바른 API 키를 입력해주세요.'
+      );
+      return;
+    }
+
+    setIsAiKeySaving(true);
+    try {
+      await saveAPIKey(aiProvider, aiApiKeyInput);
+      setAiApiKey(aiApiKeyInput);
+      Alert.alert('✅ 저장 완료', 'API 키가 안전하게 저장되었습니다.');
+    } catch {
+      Alert.alert('❌ 오류', 'API 키 저장에 실패했습니다.');
+    } finally {
+      setIsAiKeySaving(false);
+    }
+  };
 
   return (
     <ScrollView style={[styles.container, { backgroundColor: c.background }]} contentContainerStyle={styles.content}>
@@ -164,6 +272,19 @@ export default function SettingsScreen() {
         </View>
       </View>
 
+      {/* 냉장고 관리 */}
+      <View style={styles.section}>
+        <Text style={[styles.sectionTitle, { color: c.textSecondary }]}>냉장고 관리</Text>
+        <View style={[styles.settingCard, { backgroundColor: c.surface }]}>
+          <Pressable style={[styles.settingRow, { borderBottomColor: c.divider }]} onPress={() => router.push('/(tabs)/fridge-settings')}>
+            <Text style={styles.settingIcon}>🧊</Text>
+            <Text style={[styles.settingLabel, { color: c.text }]}>냉장고 설정</Text>
+            <Text style={[styles.settingValue, { color: c.textSecondary }]}></Text>
+            <Text style={[styles.settingArrow, { color: c.textLight }]}>›</Text>
+          </Pressable>
+        </View>
+      </View>
+
       {/* 알림 관리 */}
       <View style={styles.section}>
         <Text style={[styles.sectionTitle, { color: c.textSecondary }]}>알림 관리</Text>
@@ -202,7 +323,7 @@ export default function SettingsScreen() {
             <Text style={[styles.settingArrow, { color: c.textLight }]}>›</Text>
           </Pressable>
           <Pressable style={[styles.settingRow, { borderBottomColor: c.divider }]} onPress={() => {
-            Alert.alert('데이터 복원', '기존 데이터가 모두 삭제되고 백업 파일로 교체됩니다.\n계속하시겠습니까?', [
+            Alert.alert('데이터 복원', '기존 데이터가 모두 삭제되고 백업 파일로 교첼됩니다.\n계속하시겠습니까?', [
               { text: '취소', style: 'cancel' },
               {
                 text: '복원', style: 'destructive',
@@ -227,15 +348,115 @@ export default function SettingsScreen() {
         </View>
       </View>
 
-      {/* 기술 정보 */}
+      {/* AI API 설정 */}
       <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: c.textSecondary }]}>기술 스택</Text>
-        <View style={[styles.techCard, { backgroundColor: c.surface }]}>
-          <Text style={[styles.techText, { color: c.textSecondary }]}>React Native (Expo SDK 54)</Text>
-          <Text style={[styles.techText, { color: c.textSecondary }]}>TypeScript + Zustand + SQLite</Text>
-          <Text style={[styles.techText, { color: c.textSecondary }]}>완전 오프라인 (인터넷 불필요)</Text>
+        <Text style={[styles.sectionTitle, { color: c.textSecondary }]}>🤖 AI OCR 설정</Text>
+
+        {/* 추천 배너 */}
+        {aiProvider === 'none' && (
+          <Pressable
+            style={[styles.recommendBanner, { backgroundColor: c.statusBg.safe }]}
+            onPress={() => {
+              saveAIProvider('gemini').then(() => {
+                setAiProvider('gemini');
+                getAPIKey('gemini').then(key => {
+                  setAiApiKey(key);
+                  setAiApiKeyInput(key);
+                });
+              });
+            }}
+          >
+            <Text style={[styles.recommendTitle, { color: c.status.safe }]}>🥇 추천: Gemini 1.5 Flash</Text>
+            <Text style={[styles.recommendDesc, { color: c.textSecondary }]}>
+              물뵤 티어로 1,500회/일 사용 가능 • 한국어 OCR 우수
+            </Text>
+          </Pressable>
+        )}
+
+        <View style={[styles.settingCard, { backgroundColor: c.surface }]}>
+          <Pressable
+            style={[styles.settingRow, { borderBottomColor: c.divider }]}
+            onPress={handleAIProviderPick}
+            accessibilityRole="button"
+          >
+            <Text style={styles.settingIcon}>🤖</Text>
+            <View style={styles.aiProviderInfo}>
+              <Text style={[styles.settingLabel, { color: c.text }]}>AI 모델</Text>
+              <Text style={[styles.aiModelSubtitle, { color: c.textSecondary }]}>
+                {aiProvider !== 'none' ? getRecommendationLabel(aiProvider) : '선택해주세요'}
+              </Text>
+            </View>
+            <Text style={[styles.settingValue, { color: c.textSecondary }]} numberOfLines={1}>
+              {AI_PROVIDER_LABELS[aiProvider].split(' ')[0]}
+            </Text>
+            <Text style={[styles.settingArrow, { color: c.textLight }]}>›</Text>
+          </Pressable>
+
+          <Pressable
+            style={[styles.settingRow, { borderBottomColor: c.divider }]}
+            onPress={handleShowModelInfo}
+          >
+            <Text style={styles.settingIcon}>💰</Text>
+            <Text style={[styles.settingLabel, { color: c.text }]}>가격 & 정보</Text>
+            <Text style={[styles.settingValue, { color: c.textSecondary }]}>
+              {AI_PROVIDER_COST[aiProvider]}
+            </Text>
+            <Text style={[styles.settingArrow, { color: c.textLight }]}>›</Text>
+          </Pressable>
+
+          {aiProvider !== 'none' && (
+            <View style={[styles.apiKeySection, { borderBottomColor: c.divider }]}>
+              <View style={styles.apiKeyLabelRow}>
+                <Text style={styles.settingIcon}>🔑</Text>
+                <Text style={[styles.settingLabel, { color: c.text }]}>API 키</Text>
+                {AI_PROVIDER_URL[aiProvider] ? (
+                  <Text style={[styles.apiKeyLink, { color: c.primary }]} numberOfLines={1}>
+                    {AI_PROVIDER_URL[aiProvider].replace('https://', '')}
+                  </Text>
+                ) : null}
+              </View>
+              <View style={styles.apiKeyInputRow}>
+                <TextInput
+                  style={[styles.apiKeyInput, { backgroundColor: c.background, borderColor: c.border, color: c.text }]}
+                  placeholder={`${AI_MODEL_INFO[aiProvider].name} API 키를 입력하세요`}
+                  placeholderTextColor={c.textLight}
+                  value={aiApiKeyInput}
+                  onChangeText={setAiApiKeyInput}
+                  secureTextEntry
+                  autoCorrect={false}
+                  autoCapitalize="none"
+                />
+                <Pressable
+                  style={[
+                    styles.apiKeySaveButton,
+                    { backgroundColor: aiApiKeyInput.trim() ? c.primary : c.divider },
+                  ]}
+                  onPress={handleAISaveKey}
+                  disabled={isAiKeySaving || !aiApiKeyInput.trim()}
+                >
+                  <Text style={styles.apiKeySaveText}>
+                    {isAiKeySaving ? '저장 중' : '저장'}
+                  </Text>
+                </Pressable>
+              </View>
+              {aiApiKey ? (
+                <Text style={[styles.apiKeyStatus, { color: c.status.safe }]}>
+                  ✅ API 키 등록됨 - OCR 사용 가능
+                </Text>
+              ) : (
+                <Text style={[styles.apiKeyStatus, { color: c.status.warn }]}>
+                  ⚠️ API 키를 입력해주세요
+                </Text>
+              )}
+            </View>
+          )}
         </View>
+        <Text style={[styles.aiNote, { color: c.textLight }]}>
+          🔒 API 키는 기기 내 로컬(SQLite)에만 저장됩니다.{'\n'}
+          💡 OCR 기능만 사용하며, 다른 용도로는 사용되지 않습니다.
+        </Text>
       </View>
+
     </ScrollView>
   );
 }
@@ -256,6 +477,34 @@ const styles = StyleSheet.create({
   settingLabel: { flex: 1, fontSize: 15 },
   settingValue: { fontSize: 13, marginRight: 8 },
   settingArrow: { fontSize: 18 },
-  techCard: { borderRadius: 12, padding: 14, gap: 4 },
-  techText: { fontSize: 13 },
+  apiKeySection: { padding: 14, borderBottomWidth: 1, gap: 8 },
+  apiKeyLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 0 },
+  apiKeyLink: { flex: 1, fontSize: 11, textAlign: 'right' },
+  apiKeyInputRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
+  apiKeyInput: { flex: 1, borderRadius: 8, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 8, fontSize: 13 },
+  apiKeySaveButton: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 8 },
+  apiKeySaveText: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  apiKeyStatus: { fontSize: 12, fontWeight: '600' },
+  aiNote: { fontSize: 12, marginTop: 6, lineHeight: 18 },
+  // AI 추천 배너 스타일
+  recommendBanner: {
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 12,
+  },
+  recommendTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  recommendDesc: {
+    fontSize: 12,
+  },
+  aiProviderInfo: {
+    flex: 1,
+  },
+  aiModelSubtitle: {
+    fontSize: 11,
+    marginTop: 2,
+  },
 });

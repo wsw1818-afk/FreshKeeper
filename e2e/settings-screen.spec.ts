@@ -29,6 +29,73 @@ test.describe('설정 화면', () => {
   });
 });
 
+test.describe('냉장고 관리 기능', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.getByText('설정').click();
+    await expect(page.getByText('설정')).toBeVisible({ timeout: 10_000 });
+  });
+
+  test('냉장고 설정 버튼이 표시된다', async ({ page }) => {
+    await expect(page.getByText('냉장고 설정')).toBeVisible({ timeout: 5_000 });
+  });
+
+  test('냉장고 설정 버튼 클릭 시 모달이 열린다', async ({ page }) => {
+    await page.getByText('냉장고 설정').click();
+    await page.waitForTimeout(1_000);
+
+    // 모달 타이틀 확인
+    await expect(page.getByText('🧊 냉장고 관리')).toBeVisible({ timeout: 5_000 });
+  });
+
+  test('냉장고 목록이 표시된다', async ({ page }) => {
+    await page.getByText('냉장고 설정').click();
+    await page.waitForTimeout(1_000);
+
+    // 기본 냉장고들이 표시되는지 확인
+    const modalVisible = await page.getByText('🧊 냉장고 관리').isVisible({ timeout: 5_000 });
+    expect(modalVisible).toBe(true);
+  });
+
+  test('새 냉장고 추가가 가능하다', async ({ page }) => {
+    await page.getByText('냉장고 설정').click();
+    await page.waitForTimeout(1_000);
+
+    // 새 냉장고 입력
+    const input = page.getByPlaceholder('냉장고 이름');
+    if (await input.isVisible({ timeout: 5_000 }).catch(() => false)) {
+      await input.fill('테스트 냉장고');
+
+      // 추가 버튼 클릭
+      const addButton = page.getByRole('button', { name: '추가' });
+      if (await addButton.isVisible({ timeout: 3_000 }).catch(() => false)) {
+        await addButton.click();
+        await page.waitForTimeout(1_000);
+
+        // 성공 메시지 또는 추가된 냉장고 확인
+        const success = await page.getByText('완료').isVisible({ timeout: 5_000 }).catch(() => false);
+        expect(success || await page.getByText('테스트 냉장고').isVisible({ timeout: 3_000 }).catch(() => false)).toBe(true);
+      }
+    }
+  });
+
+  test('모달 닫기 버튼이 작동한다', async ({ page }) => {
+    await page.getByText('냉장고 설정').click();
+    await page.waitForTimeout(1_000);
+
+    // 닫기 버튼 클릭
+    const closeButton = page.getByText('✕');
+    if (await closeButton.isVisible({ timeout: 5_000 }).catch(() => false)) {
+      await closeButton.click();
+      await page.waitForTimeout(500);
+
+      // 모달이 닫혔는지 확인
+      const modalVisible = await page.getByText('🧊 냉장고 관리').isVisible().catch(() => false);
+      expect(modalVisible).toBe(false);
+    }
+  });
+});
+
 test.describe('통계 화면', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');

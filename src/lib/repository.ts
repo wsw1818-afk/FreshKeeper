@@ -1,8 +1,16 @@
-import { v4 as uuidv4 } from 'uuid';
 import type { SQLiteBindValue } from 'expo-sqlite';
+
+// UUID 생성 함수 (React Native 호환)
+function generateUUID(): string {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
 import { getDatabase } from './database';
 import { getNowISO, getToday } from './dateUtils';
-import type { FoodItem, FoodTemplate, NotificationSettings, ConsumptionHistory } from '@/types';
+import type { FoodItem, FoodTemplate, NotificationSettings, ConsumptionHistory, StorageLocationItem } from '@/types';
 import { FOOD_TEMPLATES } from '@/data/templates';
 
 // === JSON helpers ===
@@ -61,7 +69,7 @@ function rowToFoodItem(row: Record<string, unknown>): FoodItem {
 
 export async function insertFoodItem(item: Omit<FoodItem, 'id' | 'created_at' | 'updated_at'>): Promise<FoodItem> {
   const db = await getDatabase();
-  const id = uuidv4();
+  const id = generateUUID();
   const now = getNowISO();
 
   await db.runAsync(
@@ -333,7 +341,7 @@ export async function updateNotificationSettings(settings: Partial<NotificationS
 
 export async function addConsumptionHistory(entry: Omit<ConsumptionHistory, 'id' | 'created_at'>): Promise<void> {
   const db = await getDatabase();
-  const id = uuidv4();
+  const id = generateUUID();
   const now = getNowISO();
 
   await db.runAsync(
@@ -524,4 +532,140 @@ export async function getCategoryDiscardRate(): Promise<{ category: string; tota
     }))
     .filter((v) => v.total >= 2)
     .sort((a, b) => b.rate - a.rate);
+}
+
+// === Storage Locations CRUD ===
+
+export async function getStorageLocations(): Promise<StorageLocationItem[]> {
+  const db = await getDatabase();
+  const rows = await db.getAllAsync<Record<string, unknown>>(
+    `SELECT * FROM storage_locations ORDER BY sort_order ASC, created_at ASC`
+  );
+  return rows.map(row => ({
+    id: row.id as string,
+    name: row.name as string,
+    icon: row.icon as string,
+    color: row.color as string,
+    sort_order: row.sort_order as number,
+    is_default: toBoolean(row.is_default as number),
+    is_system: toBoolean(row.is_system as number),
+    created_at: row.created_at as string,
+    updated_at: row.updated_at as string,
+  }));
+}
+
+export async function getStorageLocationById(id: string): Promise<StorageLocationItem | null> {
+  const db = await getDatabase();
+  const row = await db.getFirstAsync<Record<string, unknown>>(
+    `SELECT * FROM storage_locations WHERE id = ?`,
+    id
+  );
+  if (!row) return null;
+  return {
+    id: row.id as string,
+    name: row.name as string,
+    icon: row.icon as string,
+    color: row.color as string,
+    sort_order: row.sort_order as number,
+    is_default: toBoolean(row.is_default as number),
+    is_system: toBoolean(row.is_system as number),
+    created_at: row.created_at as string,
+    updated_at: row.updated_at as string,
+  };
+}
+
+export async function insertStorageLocation(
+  location: Omit<StorageLocationItem, 'id' | 'created_at' | 'updated_at'>
+): Promise<StorageLocationItem> {
+  const db = await getDatabase();
+  const id = generateUUID();
+  const now = getNowISO();
+
+  await db.runAsync(
+    `INSERT INTO storage_locations (id, name, icon, color, sort_order, is_default, is_system, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    id,
+    location.name,
+    location.icon,
+    location.color,
+    location.sort_order,
+    fromBoolean(location.is_default),
+    fromBoolean(location.is_system),
+    now,
+    now
+  );
+
+  return {
+    id,
+    name: location.name,
+    icon: location.icon,
+    color: location.color,
+    sort_order: location.sort_order,
+    is_default: location.is_default,
+    is_system: location.is_system,
+    created_at: now,
+    updated_at: now,
+  };
+}
+
+export async function updateStorageLocation(
+  id: string,
+  updates: Partial<Pick<StorageLocationItem, 'name' | 'icon' | 'color' | 'sort_order' | 'is_default'>>
+): Promise<void> {
+  const db = await getDatabase();
+  const fields: string[] = [];
+  const values: SQLiteBindValue[] = [];
+
+  if (updates.name !== undefined) { fields.push('name = ?'); values.push(updates.name); }
+  if (updates.icon !== undefined) { fields.push('icon = ?'); values.push(updates.icon); }
+  if (updates.color !== undefined) { fields.push('color = ?'); values.push(updates.color); }
+  if (updates.sort_order !== undefined) { fields.push('sort_order = ?'); values.push(updates.sort_order); }
+  if (updates.is_default !== undefined) { fields.push('is_default = ?'); values.push(fromBoolean(updates.is_default)); }
+
+  if (fields.length === 0) return;
+
+  fields.push('updated_at = ?');
+  values.push(getNowISO());
+  values.push(id);
+
+  await db.runAsync(
+    `UPDATE storage_locations SET ${fields.join(', ')} WHERE id = ?`,
+    ...values
+  );
+}
+
+export async function deleteStorageLocation(id: string): Promise<boolean> {
+  const db = await getDatabase();
+
+  // 시스템 기본 보관 장소는 삭제 불가
+  const location = await getStorageLocationById(id);
+  if (location?.is_system) return false;
+
+  // 해당 보관 장소에 식품이 있는지 확인
+  const count = await db.getFirstAsync<{ cnt: number }>(
+    `SELECT COUNT(*) as cnt FROM food_items WHERE location = ? AND consumed_at IS NULL`,
+    id
+  );
+
+  if (count && count.cnt > 0) {
+    // 식품이 있으면 삭제 불가 (또는 다른 장소로 이동 필요)
+    return false;
+  }
+
+  await db.runAsync(`DELETE FROM storage_locations WHERE id = ?`, id);
+  return true;
+}
+
+export async function setDefaultStorageLocation(id: string): Promise<void> {
+  const db = await getDatabase();
+  const now = getNowISO();
+
+  // 모든 기본 해제
+  await db.runAsync(`UPDATE storage_locations SET is_default = 0, updated_at = ?`, now);
+
+  // 선택한 것을 기본으로 설정
+  await db.runAsync(
+    `UPDATE storage_locations SET is_default = 1, updated_at = ? WHERE id = ?`,
+    now, id
+  );
 }

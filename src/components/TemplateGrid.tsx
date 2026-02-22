@@ -48,7 +48,7 @@ export default function TemplateGrid({ templates, onSelect, selectedIds }: Templ
 }
 
 const styles = StyleSheet.create({
-  grid: { paddingHorizontal: 12, paddingBottom: 16 },
+  grid: { paddingHorizontal: 12, paddingTop: 8, paddingBottom: 16 },
   row: { justifyContent: 'space-between', marginBottom: 10 },
   templateItem: {
     flex: 1, maxWidth: '24%', aspectRatio: 1, borderRadius: 12,
@@ -56,7 +56,7 @@ const styles = StyleSheet.create({
   },
   templateItemPressed: { opacity: 0.7 },
   templateIcon: { fontSize: 26, marginBottom: 6 },
-  templateName: { fontSize: 11, textAlign: 'center', lineHeight: 14 },
+  templateName: { fontSize: 11, textAlign: 'center' },
   checkMark: {
     position: 'absolute', top: 4, right: 4, width: 18, height: 18,
     borderRadius: 9, alignItems: 'center', justifyContent: 'center',

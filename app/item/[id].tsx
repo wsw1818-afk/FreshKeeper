@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Pressable,
   TextInput, Alert, KeyboardAvoidingView, Platform, Image,
@@ -29,13 +29,20 @@ export default function ItemDetailScreen() {
   const removeItem = useFoodStore((s) => s.removeItem);
 
   const templates = useFoodStore((s) => s.templates);
-  const item = items.find((i) => i.id === id);
+  const storeItem = items.find((i) => i.id === id);
+  const cachedItemRef = useRef<FoodItem | undefined>(undefined);
+  if (storeItem) {
+    cachedItemRef.current = storeItem;
+  }
+  // 소비/삭제 후 스토어에서 제거되어도 캐시된 데이터로 화면 유지 (하얀 잔상 방지)
+  const item = storeItem ?? cachedItemRef.current;
+
   const [viewMode, setViewMode] = useState<ViewMode>('detail');
 
   // 편집 상태
   const [editName, setEditName] = useState('');
   const [editImageUri, setEditImageUri] = useState<string | null>(null);
-  const [editLocation, setEditLocation] = useState<StorageLocation>(StorageLocation.FRIDGE);
+  const [editLocation, setEditLocation] = useState<string>(StorageLocation.FRIDGE);
   const [editExpiresAt, setEditExpiresAt] = useState('');
   const [editQuantity, setEditQuantity] = useState('');
   const [editUnit, setEditUnit] = useState('');
@@ -97,33 +104,16 @@ export default function ItemDetailScreen() {
     }
   };
 
-  const handleConsume = (outcome: Outcome) => {
-    const label = outcome === Outcome.EAT ? '먹음' : outcome === Outcome.SHARE ? '나눔' : '폐기';
-    Alert.alert(label, `"${item.name}"을(를) ${label} 처리할까요?`, [
-      { text: '취소', style: 'cancel' },
-      {
-        text: label,
-        style: outcome === Outcome.DISCARD ? 'destructive' : 'default',
-        onPress: async () => {
-          await consumeItem(item.id, outcome);
-          router.back();
-        },
-      },
-    ]);
+  const handleConsume = async (outcome: Outcome) => {
+    // 먼저 화면 전환 (캐시된 데이터로 애니메이션 중 화면 유지)
+    router.back();
+    await consumeItem(item.id, outcome);
   };
 
-  const handleDelete = () => {
-    Alert.alert('삭제', `"${item.name}"을(를) 삭제할까요?\n(소비 이력이 남지 않습니다)`, [
-      { text: '취소', style: 'cancel' },
-      {
-        text: '삭제',
-        style: 'destructive',
-        onPress: async () => {
-          await removeItem(item.id);
-          router.back();
-        },
-      },
-    ]);
+  const handleDelete = async () => {
+    // 먼저 화면 전환 (캐시된 데이터로 애니메이션 중 화면 유지)
+    router.back();
+    await removeItem(item.id);
   };
 
   const handlePartialUse = () => {
@@ -312,9 +302,6 @@ export default function ItemDetailScreen() {
           <Text style={[styles.statusLabel, { color: statusColor }]}>
             {DERIVED_STATUS_LABEL[status]}
           </Text>
-          {dDay !== null && (
-            <Text style={[styles.dDayText, { color: c.textSecondary }]}>{formatDDay(dDay)}</Text>
-          )}
         </View>
 
         {/* 이미지 */}
@@ -387,13 +374,6 @@ export default function ItemDetailScreen() {
             <Text style={styles.consumeText}>먹음</Text>
           </Pressable>
           <Pressable
-            style={[styles.consumeButton, { backgroundColor: '#2196F3' }]}
-            onPress={() => handleConsume(Outcome.SHARE)}
-          >
-            <Text style={styles.consumeIcon}>🤝</Text>
-            <Text style={styles.consumeText}>나눔</Text>
-          </Pressable>
-          <Pressable
             style={[styles.consumeButton, { backgroundColor: c.status.danger }]}
             onPress={() => handleConsume(Outcome.DISCARD)}
           >
@@ -422,22 +402,24 @@ function FreshnessBar({ dDay, freshnessdays }: { dDay: number; freshnessdays: nu
   const totalDays = freshnessdays ?? 7;
   const elapsed = totalDays - dDay;
   const ratio = Math.max(0, Math.min(1, elapsed / totalDays));
+  const freshness = (1 - ratio) * 100;
 
+  // 신선도 퍼센트 기반 색상 (100%=초록, 낮아질수록 빨강)
   let barColor = c.status.safe;
   if (dDay <= 0) barColor = c.status.expired;
-  else if (dDay <= 1) barColor = c.status.danger;
-  else if (dDay <= 3) barColor = c.status.warn;
+  else if (freshness <= 30) barColor = c.status.danger;
+  else if (freshness <= 60) barColor = c.status.warn;
 
   return (
     <View style={freshnessStyles.container}>
       <View style={freshnessStyles.labelRow}>
         <Text style={[freshnessStyles.labelText, { color: c.textSecondary }]}>신선도</Text>
         <Text style={[freshnessStyles.valueText, { color: barColor }]}>
-          {dDay <= 0 ? '만료' : `${Math.round((1 - ratio) * 100)}%`}
+          {dDay <= 0 ? '만료' : `${Math.round(freshness)}%`}
         </Text>
       </View>
       <View style={[freshnessStyles.barBg, { backgroundColor: c.divider }]}>
-        <View style={[freshnessStyles.barFill, { width: `${(1 - ratio) * 100}%`, backgroundColor: barColor }]} />
+        <View style={[freshnessStyles.barFill, { width: `${freshness}%`, backgroundColor: barColor }]} />
       </View>
     </View>
   );
