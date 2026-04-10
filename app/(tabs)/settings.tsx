@@ -62,7 +62,7 @@ export default function SettingsScreen() {
     await rescheduleAllNotifications(items, currentSettings);
   };
 
-  const handleTimePick = (options: string[], currentValue: string, label: string, key: string) => {
+  const handleTimePick = (options: string[], currentValue: string, label: string, key: 'summary_time' | 'quiet_hours_start' | 'quiet_hours_end') => {
     Alert.alert(label, '시간을 선택하세요', [
       ...options.map((time) => ({
         text: time + (time === currentValue ? ' ✓' : ''),
@@ -94,7 +94,7 @@ export default function SettingsScreen() {
     const options = PROVIDERS.map((p) => {
       const info = AI_MODEL_INFO[p];
       const label = getRecommendationLabel(p);
-      const costLabel = p === 'none' ? '물뵤' : info.cost;
+      const costLabel = p === 'none' ? '무료' : info.cost;
       return {
         text: `${label ? `${label}\n` : ''}${info.name} - ${costLabel}${p === aiProvider ? ' ✓' : ''}`,
         onPress: async () => {
@@ -109,7 +109,7 @@ export default function SettingsScreen() {
 
     Alert.alert(
       '🤖 AI OCR 프로바이더 선택',
-      '유통기한 인식에 사용할 AI 모델을 선택하세요.\n\n💡 추천: Gemini (물뵤 티어 넉넉)',
+      '유통기한 인식에 사용할 AI 모델을 선택하세요.\n\n💡 추천: Gemini (무료 티어 넉넉)',
       [
         ...options,
         { text: '취소', style: 'cancel' as const },
@@ -132,7 +132,7 @@ export default function SettingsScreen() {
       `제공사: ${info.provider}\n` +
       `가격: ${info.cost}\n` +
       `OCR 정확도: ${info.ocrAccuracy === 'excellent' ? '최우수 ⭐⭐⭐' : info.ocrAccuracy === 'good' ? '우수 ⭐⭐' : '보통 ⭐'}\n` +
-      `물뵤 티어: ${info.freeTier}\n\n` +
+      `무료 티어: ${info.freeTier}\n\n` +
       `장점:\n${info.pros.map(p => `• ${p}`).join('\n')}\n\n` +
       `가입: ${info.signupUrl}`
     );
@@ -368,7 +368,7 @@ export default function SettingsScreen() {
           >
             <Text style={[styles.recommendTitle, { color: c.status.safe }]}>🥇 추천: Gemini 1.5 Flash</Text>
             <Text style={[styles.recommendDesc, { color: c.textSecondary }]}>
-              물뵤 티어로 1,500회/일 사용 가능 • 한국어 OCR 우수
+              무료 티어로 1,500회/일 사용 가능 • 한국어 OCR 우수
             </Text>
           </Pressable>
         )}

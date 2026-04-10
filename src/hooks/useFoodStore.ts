@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { create } from 'zustand';
 import type { FoodItem, FoodTemplate, NotificationSettings, StorageLocation, StorageLocationItem, Outcome } from '@/types';
 import {
@@ -182,12 +183,9 @@ export const useFoodStore = create<FoodStore>((set, get) => ({
   removeItem: async (id) => {
     await cancelItemNotifications(id);
     await deleteFoodItem(id);
-    // ScreenStackFragment 에러 방지: 현재 렌더링 사이클 이후 상태 업데이트
-    setTimeout(() => {
-      set((state) => ({
-        items: state.items.filter((item) => item.id !== id),
-      }));
-    }, 0);
+    set((state) => ({
+      items: state.items.filter((item) => item.id !== id),
+    }));
   },
 
   consumeItem: async (id, outcome) => {
@@ -210,12 +208,9 @@ export const useFoodStore = create<FoodStore>((set, get) => ({
       consumed_at: today,
     });
 
-    // ScreenStackFragment 에러 방지: 현재 렌더링 사이클 이후 상태 업데이트
-    setTimeout(() => {
-      set((state) => ({
-        items: state.items.filter((i) => i.id !== id),
-      }));
-    }, 0);
+    set((state) => ({
+      items: state.items.filter((i) => i.id !== id),
+    }));
   },
 
   searchItems: async (query) => {
@@ -251,35 +246,37 @@ export function useFilteredItems() {
 
 export function useItemsWithStatus() {
   const items = useFilteredItems();
-  return items.map((item) => ({
-    ...item,
-    ...calculateStatus(item),
-  }));
+  return useMemo(
+    () => items.map((item) => ({ ...item, ...calculateStatus(item) })),
+    [items],
+  );
 }
 
 export function useDashboardStats() {
   const items = useFoodStore((s) => s.items);
 
-  let expiredCount = 0;
-  let dangerCount = 0;
-  let warnCount = 0;
-  let safeCount = 0;
+  return useMemo(() => {
+    let expiredCount = 0;
+    let dangerCount = 0;
+    let warnCount = 0;
+    let safeCount = 0;
 
-  for (const item of items) {
-    const { status } = calculateStatus(item);
-    switch (status) {
-      case 'EXPIRED': expiredCount++; break;
-      case 'DANGER': dangerCount++; break;
-      case 'WARN': warnCount++; break;
-      case 'SAFE': safeCount++; break;
+    for (const item of items) {
+      const { status } = calculateStatus(item);
+      switch (status) {
+        case 'EXPIRED': expiredCount++; break;
+        case 'DANGER': dangerCount++; break;
+        case 'WARN': warnCount++; break;
+        case 'SAFE': safeCount++; break;
+      }
     }
-  }
 
-  return {
-    total: items.length,
-    expired: expiredCount,
-    danger: dangerCount,
-    warn: warnCount,
-    safe: safeCount,
-  };
+    return {
+      total: items.length,
+      expired: expiredCount,
+      danger: dangerCount,
+      warn: warnCount,
+      safe: safeCount,
+    };
+  }, [items]);
 }

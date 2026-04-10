@@ -110,10 +110,22 @@ export default function ItemDetailScreen() {
     await consumeItem(item.id, outcome);
   };
 
-  const handleDelete = async () => {
-    // 먼저 화면 전환 (캐시된 데이터로 애니메이션 중 화면 유지)
-    router.back();
-    await removeItem(item.id);
+  const handleDelete = () => {
+    Alert.alert(
+      '삭제 확인',
+      `"${item.name}"을(를) 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`,
+      [
+        { text: '취소', style: 'cancel' },
+        {
+          text: '삭제',
+          style: 'destructive',
+          onPress: async () => {
+            router.back();
+            await removeItem(item.id);
+          },
+        },
+      ],
+    );
   };
 
   const handlePartialUse = () => {

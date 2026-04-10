@@ -5,6 +5,7 @@
 
 import { readAsStringAsync, EncodingType } from 'expo-file-system/legacy';
 import type { AIProvider } from '@/lib/aiApiConfig';
+import logger from '@/lib/logger';
 
 export interface OCRResult {
   foodName: string | null;
@@ -97,11 +98,30 @@ const OCR_PROMPT = `이 이미지에서 다음 정보를 추출해주세요:
 
 날짜를 찾을 수 없으면 null, 식품명을 찾을 수 없으면 null로 표기하세요.`;
 
+// ─── 타임아웃 fetch 헬퍼 ──────────────────────────────────────────────────────
+
+const API_TIMEOUT_MS = 15_000;
+
+async function fetchWithTimeout(url: string, options: RequestInit): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('API 요청 시간 초과 (15초). 네트워크 연결을 확인해주세요.');
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 // ─── GPT-4o mini ──────────────────────────────────────────────────────────────
 
 async function callGPT(imageUri: string, apiKey: string): Promise<OCRResult> {
   const base64 = await toBase64(imageUri);
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+  const response = await fetchWithTimeout('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -134,7 +154,7 @@ async function callGPT(imageUri: string, apiKey: string): Promise<OCRResult> {
 async function callGemini(imageUri: string, apiKey: string): Promise<OCRResult> {
   const base64 = await toBase64(imageUri);
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-  const response = await fetch(url, {
+  const response = await fetchWithTimeout(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -162,7 +182,7 @@ async function callGemini(imageUri: string, apiKey: string): Promise<OCRResult> 
 
 async function callGLM(imageUri: string, apiKey: string): Promise<OCRResult> {
   const base64 = await toBase64(imageUri);
-  const response = await fetch('https://open.bigmodel.cn/api/paas/v4/chat/completions', {
+  const response = await fetchWithTimeout('https://open.bigmodel.cn/api/paas/v4/chat/completions', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -194,7 +214,7 @@ async function callGLM(imageUri: string, apiKey: string): Promise<OCRResult> {
 
 async function callKimi(imageUri: string, apiKey: string): Promise<OCRResult> {
   const base64 = await toBase64(imageUri);
-  const response = await fetch('https://api.moonshot.cn/v1/chat/completions', {
+  const response = await fetchWithTimeout('https://api.moonshot.cn/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -300,7 +320,7 @@ export async function processImageWithOCR(
     }
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
-    console.error('OCR 오류:', msg);
+    logger.error('OCR 오류:', msg);
     throw error; // 호출부에서 사용자에게 에러 표시
   }
 }

@@ -124,9 +124,9 @@ export default function InventoryScreen() {
           text: `${expiredItems.length}개 폐기`,
           style: 'destructive',
           onPress: async () => {
-            for (const item of expiredItems) {
-              await consumeItem(item.id, Outcome.DISCARD);
-            }
+            await Promise.all(
+              expiredItems.map((item) => consumeItem(item.id, Outcome.DISCARD))
+            );
             Alert.alert('완료', `${expiredItems.length}개 식재료가 폐기 처리되었습니다.`);
           },
         },

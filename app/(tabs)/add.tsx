@@ -13,6 +13,7 @@ import {
 } from '@/types';
 import type { FoodTemplate } from '@/types';
 import { useColors } from '@/hooks/useColors';
+import logger from '@/lib/logger';
 import { getToday, calculateExpiryDate, isValidDateString, formatDate } from '@/lib/dateUtils';
 import { DEFAULT_NOTIFICATION_SETTINGS } from '@/constants/config';
 import TemplateGrid from '@/components/TemplateGrid';
@@ -102,7 +103,7 @@ export default function AddScreen() {
         [{ text: '확인' }],
       );
     } catch (e) {
-      console.error('등록 오류:', e);
+      logger.error('등록 오류:', e);
       Alert.alert('오류', `등록에 실패했습니다.\n\n${e instanceof Error ? e.message : String(e)}`);
     }
   };

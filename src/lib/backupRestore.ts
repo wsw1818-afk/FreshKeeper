@@ -87,8 +87,22 @@ export async function importBackup(): Promise<{ items: number; history: number }
     throw new Error('올바른 JSON 파일이 아닙니다.');
   }
 
-  if (!backup.version || !backup.food_items) {
+  if (!backup.version || !Array.isArray(backup.food_items)) {
     throw new Error('냉장고 지킴이 백업 파일이 아닙니다.');
+  }
+
+  // 식재료 데이터 기본 스키마 검증
+  for (const item of backup.food_items) {
+    if (typeof item.id !== 'string' || typeof item.name !== 'string' || typeof item.category !== 'string' || typeof item.location !== 'string') {
+      throw new Error('백업 파일의 식재료 데이터 형식이 올바르지 않습니다.');
+    }
+    if (typeof item.name === 'string' && (item.name as string).length > 200) {
+      throw new Error('백업 파일에 비정상적인 데이터가 포함되어 있습니다.');
+    }
+  }
+
+  if (backup.consumption_history && !Array.isArray(backup.consumption_history)) {
+    throw new Error('백업 파일의 소비 이력 형식이 올바르지 않습니다.');
   }
 
   const db = await getDatabase();

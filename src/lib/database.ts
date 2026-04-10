@@ -1,13 +1,17 @@
 import * as SQLite from 'expo-sqlite';
 import { DB_NAME } from '@/constants/config';
 
-let db: SQLite.SQLiteDatabase | null = null;
+let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
-export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
-  if (db) return db;
-  db = await SQLite.openDatabaseAsync(DB_NAME);
-  await initializeDatabase(db);
-  return db;
+export function getDatabase(): Promise<SQLite.SQLiteDatabase> {
+  if (!dbPromise) {
+    dbPromise = (async () => {
+      const database = await SQLite.openDatabaseAsync(DB_NAME);
+      await initializeDatabase(database);
+      return database;
+    })();
+  }
+  return dbPromise;
 }
 
 async function initializeDatabase(database: SQLite.SQLiteDatabase): Promise<void> {
@@ -152,7 +156,7 @@ async function initializeDatabase(database: SQLite.SQLiteDatabase): Promise<void
   const defaultLocations = [
     { id: 'FRIDGE', name: '냉장고', icon: '🧊', color: '#2196F3', sort_order: 1 },
     { id: 'FREEZER', name: '냉동고', icon: '❄️', color: '#03A9F4', sort_order: 2 },
-    { id: 'PANTRY', name: '실온/ pantry', icon: '🏠', color: '#FF9800', sort_order: 3 },
+    { id: 'PANTRY', name: '실온', icon: '🏠', color: '#FF9800', sort_order: 3 },
     { id: 'KIMCHI_FRIDGE', name: '김치냉', icon: '🫙', color: '#E91E63', sort_order: 4 },
   ];
 
@@ -166,8 +170,9 @@ async function initializeDatabase(database: SQLite.SQLiteDatabase): Promise<void
 }
 
 export async function closeDatabase(): Promise<void> {
-  if (db) {
+  if (dbPromise) {
+    const db = await dbPromise;
     await db.closeAsync();
-    db = null;
+    dbPromise = null;
   }
 }

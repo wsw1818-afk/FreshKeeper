@@ -200,7 +200,7 @@ export function validateAPIKeyFormat(provider: AIProvider, key: string): boolean
       return key.startsWith('sk-') || key.startsWith('sk-proj-');
     case 'gemini':
       // Google AI Studio 키는 일반적으로 AIzaSy로 시작
-      return key.startsWith('AIza') || key.length > 30;
+      return key.startsWith('AIza');
     case 'glm':
       // ZhipuAI 키
       return key.length >= 20;

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, RefreshControl, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, RefreshControl, ActivityIndicator, Pressable } from 'react-native';
 import { useColors } from '@/hooks/useColors';
 import { FOOD_CATEGORY_LABEL } from '@/types';
 import type { FoodCategory } from '@/types';
@@ -34,21 +34,28 @@ export default function StatsScreen() {
   const [catDiscardRate, setCatDiscardRate] = useState<{ category: string; total: number; discard: number; rate: number }[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
-    const [outcome, category, monthly, history, avg, discarded, consumed, catRate] = await Promise.all([
-      getOutcomeStats(), getCategoryOutcomeStats(), getMonthlyStats(6), getConsumptionHistory(20), getAvgDDayAtOutcome(),
-      getTopDiscardedItems(5), getTopConsumedItems(5), getCategoryDiscardRate(),
-    ]);
-    setOutcomeStats(outcome);
-    setCategoryStats(category);
-    setMonthlyStats(monthly);
-    setRecentHistory(history);
-    setAvgDDay(avg);
-    setTopDiscarded(discarded);
-    setTopConsumed(consumed);
-    setCatDiscardRate(catRate);
-    setIsLoading(false);
+    try {
+      setLoadError(null);
+      const [outcome, category, monthly, history, avg, discarded, consumed, catRate] = await Promise.all([
+        getOutcomeStats(), getCategoryOutcomeStats(), getMonthlyStats(6), getConsumptionHistory(20), getAvgDDayAtOutcome(),
+        getTopDiscardedItems(5), getTopConsumedItems(5), getCategoryDiscardRate(),
+      ]);
+      setOutcomeStats(outcome);
+      setCategoryStats(category);
+      setMonthlyStats(monthly);
+      setRecentHistory(history);
+      setAvgDDay(avg);
+      setTopDiscarded(discarded);
+      setTopConsumed(consumed);
+      setCatDiscardRate(catRate);
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : '통계 데이터를 불러오지 못했습니다.');
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
   useEffect(() => { loadData(); }, [loadData]);
@@ -83,6 +90,19 @@ export default function StatsScreen() {
       <View style={[styles.loadingContainer, { backgroundColor: c.background }]}>
         <ActivityIndicator size="large" color={c.primary} />
         <Text style={[styles.loadingText, { color: c.textSecondary }]}>통계 불러오는 중...</Text>
+      </View>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <View style={[styles.emptyContainer, { backgroundColor: c.background }]}>
+        <Text style={styles.emptyIcon}>⚠️</Text>
+        <Text style={[styles.emptyTitle, { color: c.text }]}>데이터를 불러오지 못했습니다</Text>
+        <Text style={[styles.emptyDesc, { color: c.textSecondary }]}>{loadError}</Text>
+        <Pressable style={[{ marginTop: 12, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8, backgroundColor: c.primary }]} onPress={loadData}>
+          <Text style={{ color: '#fff', fontWeight: '600' }}>다시 시도</Text>
+        </Pressable>
       </View>
     );
   }
