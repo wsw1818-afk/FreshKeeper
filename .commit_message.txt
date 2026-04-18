@@ -1,1 +1,1 @@
-🐛 오타 수정: settings.tsx "물뵤" → "무료" 4곳 + BUG-005/006 해결 + 냉장고 관리 네비게이션 연결
+🛡️ Council-Code 합의 10건 적용: PANTRY 마이그레이션/트랜잭션 일괄폐기/위험재료 TOP3/Empty CTA/Zod스타일 검증/OCR 친화 메시지

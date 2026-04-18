@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, Vibration, SafeAreaView, StatusBar } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useFoodStore, useDashboardStats, useItemsWithStatus } from '@/hooks/useFoodStore';
-import { FOOD_CATEGORY_LABEL, STORAGE_LOCATION_LABEL } from '@/types';
+import { FOOD_CATEGORY_LABEL, STORAGE_LOCATION_LABEL, DerivedStatus } from '@/types';
 import type { FoodCategory } from '@/types';
 import { useColors } from '@/hooks/useColors';
 import StatusBadge from '@/components/StatusBadge';
@@ -33,7 +33,7 @@ export default function HomeScreen() {
     const labels: Record<string, { icon: string; label: string }> = {
       FRIDGE: { icon: '🧊', label: '냉장' },
       FREEZER: { icon: '❄️', label: '냉동' },
-      ROOM: { icon: '🏠', label: '실온' },
+      PANTRY: { icon: '🏠', label: '실온' },
       KIMCHI_FRIDGE: { icon: '🫙', label: '김치냉' },
     };
     return Object.entries(map)
@@ -88,6 +88,24 @@ export default function HomeScreen() {
     return itemsWithStatus.filter((i) => i.name.toLowerCase().includes(q)).slice(0, 8);
   }, [searchQuery, itemsWithStatus]);
 
+  // "빨리 먹어야 할 재료 TOP 3" — 자취생/주부/요리애호가 공통 핵심 정보
+  const urgentItems = useMemo(() => {
+    const priority: Record<string, number> = {
+      [DerivedStatus.EXPIRED]: 0,
+      [DerivedStatus.DANGER]: 1,
+      [DerivedStatus.WARN]: 2,
+    };
+    return itemsWithStatus
+      .filter((i) => !i.consumed_at && priority[i.status] !== undefined)
+      .sort((a, b) => {
+        const pa = priority[a.status] ?? 99;
+        const pb = priority[b.status] ?? 99;
+        if (pa !== pb) return pa - pb;
+        return (a.dDay ?? 999) - (b.dDay ?? 999);
+      })
+      .slice(0, 3);
+  }, [itemsWithStatus]);
+
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: c.background }]}>
       <StatusBar barStyle="default" backgroundColor={c.background} />
@@ -114,6 +132,35 @@ export default function HomeScreen() {
             ) : (
               <Text style={[styles.searchNoResult, { color: c.textSecondary }]}>검색 결과가 없습니다</Text>
             )}
+          </View>
+        )}
+
+        {/* 빨리 먹어야 할 재료 TOP 3 (user 페르소나 합의: 3가지 프로필 공통 핵심 정보) */}
+        {urgentItems.length > 0 && (
+          <View style={styles.urgentSection}>
+            <Text style={[styles.urgentSectionTitle, { color: c.text }]}>
+              ⏰ 빨리 먹어야 해요
+            </Text>
+            {urgentItems.map((item) => (
+              <Pressable
+                key={item.id}
+                style={[styles.urgentCard, { backgroundColor: c.surface }]}
+                onPress={() => router.push(`/item/${item.id}`)}
+              >
+                <View style={styles.urgentLeft}>
+                  <Text style={[styles.urgentName, { color: c.text }]} numberOfLines={1}>
+                    {item.name}
+                  </Text>
+                  <Text style={[styles.urgentMeta, { color: c.textSecondary }]} numberOfLines={1}>
+                    {STORAGE_LOCATION_LABEL[item.location] ?? item.location}
+                    {item.expires_at
+                      ? ` · ${item.dDay != null && item.dDay >= 0 ? `D-${item.dDay}` : `D+${Math.abs(item.dDay ?? 0)}`}`
+                      : ' · 기한 미설정'}
+                  </Text>
+                </View>
+                <StatusBadge status={item.status} dDay={item.dDay} size="small" />
+              </Pressable>
+            ))}
           </View>
         )}
 
@@ -263,8 +310,19 @@ export default function HomeScreen() {
         {items.length === 0 && (
           <View style={styles.emptyUrgent}>
             <Text style={styles.emptyIcon}>🛒</Text>
-            <Text style={[styles.emptyText, { color: c.text }]}>등록된 식재료가 없습니다</Text>
-            <Text style={[styles.emptySubText, { color: c.textSecondary }]}>위 버튼으로 첫 식재료를 등록해보세요</Text>
+            <Text style={[styles.emptyText, { color: c.text }]}>아직 등록된 식재료가 없어요</Text>
+            <Text style={[styles.emptySubText, { color: c.textSecondary }]}>
+              냉장고에 있는 첫 식재료를 등록하면{'\n'}
+              유통기한 알림과 신선도를 자동으로 관리해드려요
+            </Text>
+            <Pressable
+              style={[styles.emptyCta, { backgroundColor: c.primary }]}
+              onPress={() => { Vibration.vibrate(20); router.push('/(tabs)/add'); }}
+              accessibilityLabel="첫 식재료 등록하기"
+              accessibilityRole="button"
+            >
+              <Text style={styles.emptyCtaText}>➕ 첫 식재료 등록하기</Text>
+            </Pressable>
           </View>
         )}
       </ScrollView>
@@ -287,6 +345,15 @@ const styles = StyleSheet.create({
   searchResultName: { fontSize: 14, fontWeight: '600' },
   searchResultMeta: { fontSize: 12, marginTop: 2 },
   searchNoResult: { textAlign: 'center', paddingVertical: 12, fontSize: 13 },
+  urgentSection: { marginHorizontal: 12, marginTop: 8, gap: 6 },
+  urgentSectionTitle: { fontSize: 16, fontWeight: '800', marginBottom: 4, marginLeft: 2 },
+  urgentCard: {
+    flexDirection: 'row', alignItems: 'center', padding: 14, borderRadius: 10,
+    elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 3,
+  },
+  urgentLeft: { flex: 1, overflow: 'hidden', marginRight: 12, gap: 2 },
+  urgentName: { fontSize: 15, fontWeight: '700' },
+  urgentMeta: { fontSize: 12 },
   statsContainer: { paddingHorizontal: 12, paddingTop: 8 },
   statsRow: { flexDirection: 'row', gap: 8 },
   statCard: {
@@ -304,10 +371,15 @@ const styles = StyleSheet.create({
   section: { marginTop: 10, paddingHorizontal: 12 },
   sectionTitle: { fontSize: 15, fontWeight: '700', marginBottom: 8 },
   moreLink: { fontSize: 13, fontWeight: '600', textAlign: 'center', paddingVertical: 8 },
-  emptyUrgent: { alignItems: 'center', justifyContent: 'center', paddingVertical: 40, gap: 8 },
-  emptyIcon: { fontSize: 40 },
-  emptyText: { fontSize: 16, fontWeight: '600' },
-  emptySubText: { fontSize: 14 },
+  emptyUrgent: { alignItems: 'center', justifyContent: 'center', paddingVertical: 40, gap: 10, paddingHorizontal: 24 },
+  emptyIcon: { fontSize: 48 },
+  emptyText: { fontSize: 17, fontWeight: '700' },
+  emptySubText: { fontSize: 13, textAlign: 'center', lineHeight: 20 },
+  emptyCta: {
+    marginTop: 16, paddingHorizontal: 28, paddingVertical: 14, borderRadius: 12,
+    elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 4,
+  },
+  emptyCtaText: { fontSize: 15, fontWeight: '700', color: '#fff' },
   tipCard: {
     flexDirection: 'row', alignItems: 'center', marginHorizontal: 12, marginTop: 8,
     padding: 12, borderRadius: 9, gap: 10,

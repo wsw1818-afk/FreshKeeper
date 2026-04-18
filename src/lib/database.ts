@@ -167,6 +167,12 @@ async function initializeDatabase(database: SQLite.SQLiteDatabase): Promise<void
       loc.id, loc.name, loc.icon, loc.color, loc.sort_order, now, now
     );
   }
+
+  // 마이그레이션: 과거 버전 사용자의 PANTRY 표시 이름 수정
+  await database.runAsync(
+    `UPDATE storage_locations SET name = '실온', updated_at = ? WHERE id = 'PANTRY' AND name = '실온/ pantry';`,
+    now,
+  );
 }
 
 export async function closeDatabase(): Promise<void> {

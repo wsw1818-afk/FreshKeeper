@@ -96,8 +96,8 @@ export default function OCRScanner({ onClose, onSuccess }: OCRScannerProps) {
         category: null,
       });
     } catch (error) {
-      const msg = error instanceof Error ? error.message : '이미지 처리 중 오류가 발생했습니다.';
-      Alert.alert('OCR 오류', msg);
+      const msg = error instanceof Error ? error.message : '사진을 인식하지 못했어요. 직접 입력할까요?';
+      Alert.alert('알림', msg);
     } finally {
       setIsProcessing(false);
     }

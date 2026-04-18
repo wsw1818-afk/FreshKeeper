@@ -7,6 +7,34 @@ import { readAsStringAsync, EncodingType } from 'expo-file-system/legacy';
 import type { AIProvider } from '@/lib/aiApiConfig';
 import logger from '@/lib/logger';
 
+/**
+ * 사용자용 에러 클래스 — UI에 그대로 표시해도 안전한 한국어 메시지
+ * (내부 에러 디테일은 로그에만 기록, CWE-209 정보 노출 방어)
+ */
+export class OCRUserError extends Error {
+  constructor(public userMessage: string, public cause?: unknown) {
+    super(userMessage);
+    this.name = 'OCRUserError';
+  }
+}
+
+function wrapAPIError(provider: string, status: number, body: string): OCRUserError {
+  // 로그에는 원본 (민감정보 마스킹 필요 시 여기에 추가)
+  logger.error(`${provider} API error`, { status, bodyPreview: body.slice(0, 200) });
+
+  // UI에는 사용자 친화적 메시지만
+  if (status === 401 || status === 403) {
+    return new OCRUserError('API 키가 올바르지 않아요. 설정에서 다시 확인해주세요.');
+  }
+  if (status === 429) {
+    return new OCRUserError('오늘의 사용량을 모두 썼어요. 잠시 후 다시 시도해주세요.');
+  }
+  if (status >= 500) {
+    return new OCRUserError('AI 서비스에 일시적인 문제가 있어요. 잠시 후 다시 시도해주세요.');
+  }
+  return new OCRUserError('사진 인식에 실패했어요. 다른 사진으로 다시 시도해볼까요?');
+}
+
 export interface OCRResult {
   foodName: string | null;
   expiryDate: string | null;
@@ -109,7 +137,7 @@ async function fetchWithTimeout(url: string, options: RequestInit): Promise<Resp
     return await fetch(url, { ...options, signal: controller.signal });
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
-      throw new Error('API 요청 시간 초과 (15초). 네트워크 연결을 확인해주세요.');
+      throw new OCRUserError('응답이 너무 오래 걸려요. 네트워크 상태를 확인하고 다시 시도해주세요.');
     }
     throw error;
   } finally {
@@ -143,7 +171,7 @@ async function callGPT(imageUri: string, apiKey: string): Promise<OCRResult> {
   });
   if (!response.ok) {
     const err = await response.text();
-    throw new Error(`GPT API 오류 (${response.status}): ${err.slice(0, 200)}`);
+    throw wrapAPIError('GPT', response.status, err);
   }
   const data = await response.json();
   return parseAIResponse(data.choices?.[0]?.message?.content ?? '');
@@ -171,7 +199,7 @@ async function callGemini(imageUri: string, apiKey: string): Promise<OCRResult> 
   });
   if (!response.ok) {
     const err = await response.text();
-    throw new Error(`Gemini API 오류 (${response.status}): ${err.slice(0, 200)}`);
+    throw wrapAPIError('Gemini', response.status, err);
   }
   const data = await response.json();
   const text: string = data.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
@@ -204,7 +232,7 @@ async function callGLM(imageUri: string, apiKey: string): Promise<OCRResult> {
   });
   if (!response.ok) {
     const err = await response.text();
-    throw new Error(`GLM API 오류 (${response.status}): ${err.slice(0, 200)}`);
+    throw wrapAPIError('GLM', response.status, err);
   }
   const data = await response.json();
   return parseAIResponse(data.choices?.[0]?.message?.content ?? '');
@@ -236,7 +264,7 @@ async function callKimi(imageUri: string, apiKey: string): Promise<OCRResult> {
   });
   if (!response.ok) {
     const err = await response.text();
-    throw new Error(`Kimi API 오류 (${response.status}): ${err.slice(0, 200)}`);
+    throw wrapAPIError('Kimi', response.status, err);
   }
   const data = await response.json();
   return parseAIResponse(data.choices?.[0]?.message?.content ?? '');
@@ -321,6 +349,8 @@ export async function processImageWithOCR(
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     logger.error('OCR 오류:', msg);
-    throw error; // 호출부에서 사용자에게 에러 표시
+    // 이미 사용자 친화적인 에러면 그대로 전달, 아니면 일반 메시지로 래핑
+    if (error instanceof OCRUserError) throw error;
+    throw new OCRUserError('사진을 인식하지 못했어요. 직접 입력할까요?', error);
   }
 }

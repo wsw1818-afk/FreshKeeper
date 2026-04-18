@@ -2,11 +2,11 @@ import React, { useMemo, useState, useCallback, useRef, useEffect } from 'react'
 import { View, Text, StyleSheet, FlatList, Pressable, Alert, Animated } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useRouter, Link } from 'expo-router';
-import { useFoodStore, useFilteredItems } from '@/hooks/useFoodStore';
+import { useFoodStore, useItemsWithStatus } from '@/hooks/useFoodStore';
 import type { FoodItem } from '@/types';
 import { Outcome, DerivedStatus, FoodCategory, FOOD_CATEGORY_LABEL, OUTCOME_LABEL } from '@/types';
 import { useColors } from '@/hooks/useColors';
-import { calculateStatus, getStatusPriority } from '@/lib/statusCalculator';
+import { getStatusPriority } from '@/lib/statusCalculator';
 import SwipeableFoodCard from '@/components/SwipeableFoodCard';
 import LocationFilter from '@/components/LocationFilter';
 
@@ -20,11 +20,12 @@ export default function InventoryScreen() {
   const searchQuery = useFoodStore((s) => s.globalSearchQuery);
   const [sortMode, setSortMode] = useState<SortMode>('expiry');
   const [selectedCategory, setSelectedCategory] = useState<FoodCategory | 'ALL'>('ALL');
-  const items = useFilteredItems();
+  const items = useItemsWithStatus();
   const allItems = useFoodStore((s) => s.items);
   const selectedLocation = useFoodStore((s) => s.selectedLocation);
   const setSelectedLocation = useFoodStore((s) => s.setSelectedLocation);
   const consumeItem = useFoodStore((s) => s.consumeItem);
+  const batchConsumeItems = useFoodStore((s) => s.batchConsumeItems);
 
   // Undo 스낵바 상태
   const [undoInfo, setUndoInfo] = useState<{ item: FoodItem; outcome: Outcome } | null>(null);
@@ -91,11 +92,8 @@ export default function InventoryScreen() {
           if (!a.expires_at) return 1;
           if (!b.expires_at) return -1;
           return a.expires_at.localeCompare(b.expires_at);
-        case 'status': {
-          const sa = calculateStatus(a);
-          const sb = calculateStatus(b);
-          return getStatusPriority(sa.status) - getStatusPriority(sb.status);
-        }
+        case 'status':
+          return getStatusPriority(a.status) - getStatusPriority(b.status);
         case 'name':
           return a.name.localeCompare(b.name);
         case 'added':
@@ -106,12 +104,10 @@ export default function InventoryScreen() {
     });
   }, [items, searchQuery, sortMode, selectedCategory]);
 
-  const expiredItems = useMemo(() => {
-    return items.filter((item) => {
-      const { status } = calculateStatus(item);
-      return status === DerivedStatus.EXPIRED;
-    });
-  }, [items]);
+  const expiredItems = useMemo(
+    () => items.filter((item) => item.status === DerivedStatus.EXPIRED),
+    [items],
+  );
 
   const handleBulkDiscard = useCallback(() => {
     if (expiredItems.length === 0) return;
@@ -124,15 +120,20 @@ export default function InventoryScreen() {
           text: `${expiredItems.length}개 폐기`,
           style: 'destructive',
           onPress: async () => {
-            await Promise.all(
-              expiredItems.map((item) => consumeItem(item.id, Outcome.DISCARD))
-            );
-            Alert.alert('완료', `${expiredItems.length}개 식재료가 폐기 처리되었습니다.`);
+            try {
+              await batchConsumeItems(
+                expiredItems.map((item) => item.id),
+                Outcome.DISCARD,
+              );
+              Alert.alert('완료', `${expiredItems.length}개 식재료가 폐기 처리되었습니다.`);
+            } catch {
+              Alert.alert('오류', '일괄 폐기 중 문제가 발생했습니다. 다시 시도해주세요.');
+            }
           },
         },
       ],
     );
-  }, [expiredItems, consumeItem]);
+  }, [expiredItems, batchConsumeItems]);
 
   const handleItemPress = useCallback((item: FoodItem) => {
     router.push(`/item/${item.id}`);

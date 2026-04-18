@@ -200,6 +200,43 @@ export async function searchFoodItems(query: string): Promise<FoodItem[]> {
   return rows.map(rowToFoodItem);
 }
 
+/**
+ * 여러 식재료를 단일 트랜잭션으로 소비 처리합니다.
+ * 부분 실패 시 전체 롤백되어 데이터 일관성을 보장합니다.
+ */
+export async function batchConsumeFoodItems(
+  entries: Array<{
+    item: FoodItem;
+    outcome: ConsumptionHistory['outcome'];
+    dDay: number;
+    consumedAt: string;
+  }>,
+): Promise<void> {
+  if (entries.length === 0) return;
+  const db = await getDatabase();
+  const now = getNowISO();
+
+  await db.execAsync('BEGIN TRANSACTION');
+  try {
+    for (const { item, outcome, dDay, consumedAt } of entries) {
+      await db.runAsync(
+        `UPDATE food_items SET consumed_at = ?, outcome = ?, updated_at = ? WHERE id = ?`,
+        consumedAt, outcome, now, item.id,
+      );
+      const historyId = generateUUID();
+      await db.runAsync(
+        `INSERT INTO consumption_history (id, food_item_id, food_name, category, outcome, d_day_at_outcome, consumed_at, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        historyId, item.id, item.name, item.category, outcome, dDay, consumedAt, now,
+      );
+    }
+    await db.execAsync('COMMIT');
+  } catch (e) {
+    await db.execAsync('ROLLBACK');
+    throw e;
+  }
+}
+
 // === FoodTemplate ===
 
 export async function seedTemplates(): Promise<void> {

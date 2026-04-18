@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { InteractionManager } from 'react-native';
 import { create } from 'zustand';
 import type { FoodItem, FoodTemplate, NotificationSettings, StorageLocation, StorageLocationItem, Outcome } from '@/types';
 import {
@@ -11,6 +12,7 @@ import {
   seedTemplates,
   incrementTemplateUsage,
   addConsumptionHistory,
+  batchConsumeFoodItems,
   getNotificationSettings,
   updateNotificationSettings as repoUpdateNotificationSettings,
   getStorageLocations,
@@ -43,6 +45,7 @@ interface FoodStore {
   editItem: (id: string, updates: Partial<FoodItem>) => Promise<void>;
   removeItem: (id: string) => Promise<void>;
   consumeItem: (id: string, outcome: Outcome) => Promise<void>;
+  batchConsumeItems: (ids: string[], outcome: Outcome) => Promise<void>;
   searchItems: (query: string) => Promise<FoodItem[]>;
   setSelectedLocation: (location: StorageLocation | 'ALL') => void;
   setGlobalSearchQuery: (query: string) => void;
@@ -183,9 +186,14 @@ export const useFoodStore = create<FoodStore>((set, get) => ({
   removeItem: async (id) => {
     await cancelItemNotifications(id);
     await deleteFoodItem(id);
-    set((state) => ({
-      items: state.items.filter((item) => item.id !== id),
-    }));
+    // ScreenStackFragment(react-native-screens) 충돌 방지:
+    // 네비게이션 애니메이션 진행 중 Zustand 리렌더가 겹치면 Android에서
+    // Fragment 상태 예외가 발생할 수 있어 상호작용이 끝난 뒤 갱신한다.
+    InteractionManager.runAfterInteractions(() => {
+      set((state) => ({
+        items: state.items.filter((item) => item.id !== id),
+      }));
+    });
   },
 
   consumeItem: async (id, outcome) => {
@@ -208,8 +216,39 @@ export const useFoodStore = create<FoodStore>((set, get) => ({
       consumed_at: today,
     });
 
-    set((state) => ({
-      items: state.items.filter((i) => i.id !== id),
+    // ScreenStackFragment 충돌 방지 (removeItem과 동일 이유)
+    InteractionManager.runAfterInteractions(() => {
+      set((state) => ({
+        items: state.items.filter((i) => i.id !== id),
+      }));
+    });
+  },
+
+  batchConsumeItems: async (ids, outcome) => {
+    const state = get();
+    const targets = state.items.filter((i) => ids.includes(i.id));
+    if (targets.length === 0) return;
+
+    const today = getToday();
+    const entries = targets.map((item) => ({
+      item,
+      outcome,
+      dDay: item.expires_at ? calculateDDay(item.expires_at) : 0,
+      consumedAt: today,
+    }));
+
+    logger.info(`Batch consume: ${targets.length} items, outcome=${outcome}`);
+
+    // 알림 취소 (병렬 실행은 독립 작업이라 안전)
+    await Promise.all(targets.map((item) => cancelItemNotifications(item.id)));
+
+    // 단일 트랜잭션으로 DB 원자적 업데이트
+    await batchConsumeFoodItems(entries);
+
+    // 스토어 일괄 업데이트 (리렌더 1회)
+    const removedIds = new Set(ids);
+    set((s) => ({
+      items: s.items.filter((i) => !removedIds.has(i.id)),
     }));
   },
 

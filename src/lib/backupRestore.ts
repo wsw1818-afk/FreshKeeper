@@ -12,9 +12,80 @@ interface BackupData {
   notification_settings: Record<string, unknown> | null;
 }
 
+// 백업 import 검증 상수
+const MAX_NAME_LENGTH = 200;
+const MAX_MEMO_LENGTH = 2000;
+const MAX_IMAGE_URI_LENGTH = 4096;
+const MAX_ITEMS = 10_000;
+const VALID_OUTCOMES = new Set(['EAT', 'DISCARD', 'SHARE']);
+const VALID_DATE_TYPES = new Set(['RECOMMENDED', 'USE_BY', 'SELL_BY', 'BEST_BEFORE']);
+const VALID_LOCATIONS = new Set(['FRIDGE', 'FREEZER', 'PANTRY', 'KIMCHI_FRIDGE']);
+
+/** file://, content:// 이외 스킴 차단 (path traversal 방어) */
+function isSafeImageUri(uri: unknown): boolean {
+  if (uri === null || uri === undefined) return true;
+  if (typeof uri !== 'string') return false;
+  if (uri.length > MAX_IMAGE_URI_LENGTH) return false;
+  // 앱 내부에서 생성한 URI만 허용
+  return uri.startsWith('file://') || uri.startsWith('content://') || uri === '';
+}
+
+/** 백업 JSON의 food_items 배열 항목을 검증 */
+function validateFoodItemRow(item: Record<string, unknown>, index: number): void {
+  const ctx = `food_items[${index}]`;
+  if (typeof item.id !== 'string' || item.id.length === 0 || item.id.length > 128) {
+    throw new Error(`${ctx}: id가 올바르지 않습니다.`);
+  }
+  if (typeof item.name !== 'string' || item.name.length === 0 || item.name.length > MAX_NAME_LENGTH) {
+    throw new Error(`${ctx}: 이름 형식이 올바르지 않습니다.`);
+  }
+  if (typeof item.category !== 'string' || item.category.length > 50) {
+    throw new Error(`${ctx}: 카테고리 형식이 올바르지 않습니다.`);
+  }
+  if (typeof item.location !== 'string' || !VALID_LOCATIONS.has(item.location)) {
+    throw new Error(`${ctx}: 보관 위치가 허용되지 않는 값입니다.`);
+  }
+  if (!isSafeImageUri(item.image_uri)) {
+    throw new Error(`${ctx}: 이미지 경로가 허용되지 않는 형식입니다.`);
+  }
+  if (item.date_type !== null && item.date_type !== undefined && (typeof item.date_type !== 'string' || !VALID_DATE_TYPES.has(item.date_type))) {
+    throw new Error(`${ctx}: 기한 유형이 허용되지 않는 값입니다.`);
+  }
+  if (item.outcome !== null && item.outcome !== undefined && (typeof item.outcome !== 'string' || !VALID_OUTCOMES.has(item.outcome))) {
+    throw new Error(`${ctx}: 소비 결과가 허용되지 않는 값입니다.`);
+  }
+  if (item.quantity !== null && item.quantity !== undefined && (typeof item.quantity !== 'number' || !Number.isFinite(item.quantity) || item.quantity < 0)) {
+    throw new Error(`${ctx}: 수량이 올바르지 않습니다.`);
+  }
+  if (item.memo !== null && item.memo !== undefined && (typeof item.memo !== 'string' || item.memo.length > MAX_MEMO_LENGTH)) {
+    throw new Error(`${ctx}: 메모 길이가 허용 범위를 벗어났습니다.`);
+  }
+  // alert_offsets 는 JSON 문자열로 저장됨
+  if (item.alert_offsets !== null && item.alert_offsets !== undefined && typeof item.alert_offsets !== 'string') {
+    throw new Error(`${ctx}: 알림 오프셋 형식이 올바르지 않습니다.`);
+  }
+}
+
+function validateHistoryRow(h: Record<string, unknown>, index: number): void {
+  const ctx = `consumption_history[${index}]`;
+  if (typeof h.id !== 'string' || typeof h.food_item_id !== 'string' || typeof h.food_name !== 'string') {
+    throw new Error(`${ctx}: 이력 레코드 형식이 올바르지 않습니다.`);
+  }
+  if (typeof h.outcome !== 'string' || !VALID_OUTCOMES.has(h.outcome)) {
+    throw new Error(`${ctx}: outcome 값이 허용되지 않습니다.`);
+  }
+  if (typeof h.d_day_at_outcome !== 'number' || !Number.isFinite(h.d_day_at_outcome)) {
+    throw new Error(`${ctx}: d_day_at_outcome 형식이 올바르지 않습니다.`);
+  }
+}
+
 /**
  * DB 전체를 JSON 파일로 내보냅니다.
  * 파일은 공유 시트를 통해 전달됩니다.
+ *
+ * ⚠️ 보안 정책(회귀 방지): 절대로 `app_settings` 테이블을 export에 포함하지 말 것.
+ * AI OCR API 키가 저장되어 있어 백업 파일로 유출 시 제3자의 API 요금 도용 위험.
+ * "전체 백업" 기능을 추가할 때도 반드시 app_settings는 제외.
  */
 export async function exportBackup(): Promise<void> {
   const db = await getDatabase();
@@ -87,22 +158,25 @@ export async function importBackup(): Promise<{ items: number; history: number }
     throw new Error('올바른 JSON 파일이 아닙니다.');
   }
 
-  if (!backup.version || !Array.isArray(backup.food_items)) {
+  if (backup.version !== 1 || !Array.isArray(backup.food_items)) {
     throw new Error('냉장고 지킴이 백업 파일이 아닙니다.');
   }
 
-  // 식재료 데이터 기본 스키마 검증
-  for (const item of backup.food_items) {
-    if (typeof item.id !== 'string' || typeof item.name !== 'string' || typeof item.category !== 'string' || typeof item.location !== 'string') {
-      throw new Error('백업 파일의 식재료 데이터 형식이 올바르지 않습니다.');
-    }
-    if (typeof item.name === 'string' && (item.name as string).length > 200) {
-      throw new Error('백업 파일에 비정상적인 데이터가 포함되어 있습니다.');
-    }
+  if (backup.food_items.length > MAX_ITEMS) {
+    throw new Error(`식재료가 너무 많습니다 (최대 ${MAX_ITEMS}개).`);
   }
 
-  if (backup.consumption_history && !Array.isArray(backup.consumption_history)) {
-    throw new Error('백업 파일의 소비 이력 형식이 올바르지 않습니다.');
+  // 전 필드 검증 (공격면: 악성 JSON → 내부 URI 주입, enum 변조, 메모리 고갈)
+  backup.food_items.forEach((item, idx) => validateFoodItemRow(item, idx));
+
+  if (backup.consumption_history !== null && backup.consumption_history !== undefined) {
+    if (!Array.isArray(backup.consumption_history)) {
+      throw new Error('백업 파일의 소비 이력 형식이 올바르지 않습니다.');
+    }
+    if (backup.consumption_history.length > MAX_ITEMS) {
+      throw new Error('소비 이력이 너무 많습니다.');
+    }
+    backup.consumption_history.forEach((h, idx) => validateHistoryRow(h, idx));
   }
 
   const db = await getDatabase();
