@@ -4,13 +4,14 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useRouter, Link } from 'expo-router';
 import { useFoodStore, useItemsWithStatus } from '@/hooks/useFoodStore';
 import type { FoodItem } from '@/types';
-import { Outcome, DerivedStatus, FoodCategory, FOOD_CATEGORY_LABEL, OUTCOME_LABEL } from '@/types';
+import { Outcome, DerivedStatus, FoodCategory, FOOD_CATEGORY_LABEL, OUTCOME_LABEL, STORAGE_LOCATION_ICON, STORAGE_LOCATION_LABEL } from '@/types';
 import { useColors } from '@/hooks/useColors';
 import { getStatusPriority } from '@/lib/statusCalculator';
 import SwipeableFoodCard from '@/components/SwipeableFoodCard';
 import LocationFilter from '@/components/LocationFilter';
 
 type SortMode = 'expiry' | 'status' | 'name' | 'added';
+type ViewMode = 'compact' | 'card';
 
 const UNDO_TIMEOUT_MS = 3000;
 
@@ -19,6 +20,9 @@ export default function InventoryScreen() {
   const c = useColors();
   const searchQuery = useFoodStore((s) => s.globalSearchQuery);
   const [sortMode, setSortMode] = useState<SortMode>('expiry');
+  // [Council Round 3 합의 P0-1] 기본을 'card'로: compact 모드는 swipe-to-consume 미지원
+  // 사용자가 명시적으로 '☰ 보기 방식' 토글로 compact를 선택하도록 함
+  const [viewMode, setViewMode] = useState<ViewMode>('card');
   const [selectedCategory, setSelectedCategory] = useState<FoodCategory | 'ALL'>('ALL');
   const items = useItemsWithStatus();
   const allItems = useFoodStore((s) => s.items);
@@ -59,7 +63,9 @@ export default function InventoryScreen() {
 
   const locationCounts = useMemo(() => {
     const counts: Record<string, number> = {};
+    // [Council Round 3 합의 P0-3] 소비 완료 아이템 명시 제외 (DB 필터에 의존하지 않음)
     for (const item of allItems) {
+      if (item.consumed_at) continue;
       counts[item.location] = (counts[item.location] ?? 0) + 1;
     }
     return counts;
@@ -144,13 +150,51 @@ export default function InventoryScreen() {
     showSnackbar(item, outcome);
   }, [consumeItem, showSnackbar]);
 
-  const renderItem = useCallback(({ item }: { item: FoodItem }) => (
+  // [C2 밀도 높은 리스트] 컴팩트 행 렌더러 (한 화면 12+ 아이템)
+  const renderCompactRow = useCallback(({ item, index }: { item: FoodItem & { status: DerivedStatus; dDay: number | null }; index: number }) => {
+    const statusColor =
+      item.status === DerivedStatus.EXPIRED ? c.status.expired :
+      item.status === DerivedStatus.DANGER ? c.status.danger :
+      item.status === DerivedStatus.WARN ? c.status.warn :
+      c.status.safe;
+    const rowBg = index % 2 === 0 ? c.surface : c.background;
+    const dDayLabel = item.expires_at && item.dDay != null
+      ? (item.dDay >= 0 ? `D-${item.dDay}` : `D+${Math.abs(item.dDay)}`)
+      : '—';
+    return (
+      <Pressable
+        style={[styles.compactRow, { backgroundColor: rowBg, borderBottomColor: c.divider }]}
+        onPress={() => handleItemPress(item)}
+      >
+        <View style={[styles.compactStatusBar, { backgroundColor: statusColor }]} />
+        <Text style={styles.compactLocIcon}>{STORAGE_LOCATION_ICON[item.location] ?? '📦'}</Text>
+        <View style={styles.compactNameCol}>
+          <Text style={[styles.compactName, { color: c.text }]} numberOfLines={1}>{item.name}</Text>
+          <Text style={[styles.compactMeta, { color: c.textSecondary }]} numberOfLines={1}>
+            {FOOD_CATEGORY_LABEL[item.category]} · {item.quantity}{item.unit}
+          </Text>
+        </View>
+        <View style={styles.compactDDayCol}>
+          <Text style={[styles.compactDDay, { color: statusColor }]} numberOfLines={1}>
+            {dDayLabel}
+          </Text>
+          <Text style={[styles.compactExpiresAt, { color: c.textLight }]} numberOfLines={1}>
+            {item.expires_at ?? '미설정'}
+          </Text>
+        </View>
+      </Pressable>
+    );
+  }, [c, handleItemPress]);
+
+  const renderCardItem = useCallback(({ item }: { item: FoodItem }) => (
     <SwipeableFoodCard
       item={item}
       onPress={handleItemPress}
       onConsume={handleConsume}
     />
   ), [handleItemPress, handleConsume]);
+
+  const renderItem = viewMode === 'compact' ? renderCompactRow : renderCardItem;
 
   const keyExtractor = useCallback((item: FoodItem) => item.id, []);
 
@@ -197,6 +241,15 @@ export default function InventoryScreen() {
             </Text>
           </Pressable>
         )}
+        {/* [C2] 뷰 모드 토글 */}
+        <Pressable
+          style={[styles.viewToggle, { backgroundColor: c.surface, borderColor: c.border }]}
+          onPress={() => setViewMode(viewMode === 'compact' ? 'card' : 'compact')}
+        >
+          <Text style={[styles.viewToggleText, { color: c.textSecondary }]}>
+            {viewMode === 'compact' ? '☰ 한 줄' : '◫ 카드'}
+          </Text>
+        </Pressable>
       </View>
 
       {/* 카테고리 필터 */}
@@ -233,18 +286,18 @@ export default function InventoryScreen() {
       {/* 목록 */}
       <FlatList
         data={filteredItems}
-        renderItem={renderItem}
+        renderItem={renderItem as any}
         keyExtractor={keyExtractor}
-        contentContainerStyle={styles.list}
+        contentContainerStyle={viewMode === 'compact' ? styles.listCompact : styles.list}
         removeClippedSubviews
-        maxToRenderPerBatch={15}
-        windowSize={7}
-        initialNumToRender={10}
+        maxToRenderPerBatch={viewMode === 'compact' ? 25 : 15}
+        windowSize={viewMode === 'compact' ? 10 : 7}
+        initialNumToRender={viewMode === 'compact' ? 18 : 10}
         ListEmptyComponent={
           <View style={styles.empty}>
             <Text style={styles.emptyIcon}>{searchQuery ? '🔍' : '🧊'}</Text>
             <Text style={[styles.emptyTitle, { color: c.text }]}>
-              {searchQuery ? '검색 결과가 없습니다' : '냉장고가 비어있어요'}
+              {searchQuery ? '검색 결과가 없습니다' : '이 위치에 보관 중인 식재료가 없어요'}
             </Text>
             <Text style={[styles.emptyDesc, { color: c.textSecondary }]}>
               {searchQuery
@@ -297,6 +350,24 @@ const styles = StyleSheet.create({
   catChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 12, borderWidth: 1, overflow: 'visible' as const },
   catText: { fontSize: 13 },
   list: { paddingBottom: 16 },
+  listCompact: { paddingBottom: 16 },
+  // [C2 밀도 높은 리스트] 스타일
+  viewToggle: { paddingHorizontal: 10, paddingVertical: 8, borderRadius: 10, borderWidth: 1 },
+  viewToggleText: { fontSize: 12, fontWeight: '700' },
+  compactRow: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingVertical: 10, paddingRight: 12,
+    borderBottomWidth: 1,
+    minHeight: 52,
+  },
+  compactStatusBar: { width: 4, height: 36, borderRadius: 2, marginRight: 10, marginLeft: 12 },
+  compactLocIcon: { fontSize: 18, marginRight: 10 },
+  compactNameCol: { flex: 1, minWidth: 0, marginRight: 8 },
+  compactName: { fontSize: 14, fontWeight: '600' },
+  compactMeta: { fontSize: 11, marginTop: 2 },
+  compactDDayCol: { alignItems: 'flex-end', minWidth: 76 },
+  compactDDay: { fontSize: 14, fontWeight: '800', letterSpacing: -0.3, fontVariant: ['tabular-nums'] },
+  compactExpiresAt: { fontSize: 10, marginTop: 2 },
   empty: { alignItems: 'center', paddingVertical: 40, gap: 8, paddingHorizontal: 32 },
   emptyIcon: { fontSize: 48 },
   emptyTitle: { fontSize: 16, fontWeight: '700' },

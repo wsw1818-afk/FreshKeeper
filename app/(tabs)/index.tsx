@@ -2,8 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, Vibration, SafeAreaView, StatusBar } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useFoodStore, useDashboardStats, useItemsWithStatus } from '@/hooks/useFoodStore';
-import { FOOD_CATEGORY_LABEL, STORAGE_LOCATION_LABEL, DerivedStatus } from '@/types';
-import type { FoodCategory } from '@/types';
+import { STORAGE_LOCATION_LABEL, DerivedStatus } from '@/types';
 import { useColors } from '@/hooks/useColors';
 import StatusBadge from '@/components/StatusBadge';
 import { getOutcomeStats, type OutcomeStats } from '@/lib/repository';
@@ -59,19 +58,7 @@ export default function HomeScreen() {
     return grouped;
   }, [itemsWithStatus, storageLocations]);
 
-  // 카테고리별 보관 현황
-  const categorySummary = useMemo(() => {
-    const map: Record<string, number> = {};
-    for (const item of items) {
-      if (!item.consumed_at) {
-        map[item.category] = (map[item.category] || 0) + 1;
-      }
-    }
-    return Object.entries(map)
-      .map(([cat, count]) => ({ category: cat, label: FOOD_CATEGORY_LABEL[cat as FoodCategory] ?? cat, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 5);
-  }, [items]);
+  // [Council Round 3 합의 P1-4] categorySummary 죽은 코드 제거 (A1 미니멀 리팩터링 후 미사용)
 
   // 소비 팁 생성
   const smartTip = useMemo(() => {
@@ -135,98 +122,99 @@ export default function HomeScreen() {
           </View>
         )}
 
-        {/* 빨리 먹어야 할 재료 TOP 3 (user 페르소나 합의: 3가지 프로필 공통 핵심 정보) */}
+        {/* [A1 미니멀 집중형] 빨리 먹어야 해요 — 대형 히어로 섹션 */}
         {urgentItems.length > 0 && (
-          <View style={styles.urgentSection}>
-            <Text style={[styles.urgentSectionTitle, { color: c.text }]}>
+          <View style={styles.heroSection}>
+            <Text style={[styles.heroTitle, { color: c.text }]}>
               ⏰ 빨리 먹어야 해요
             </Text>
-            {urgentItems.map((item) => (
+            <Text style={[styles.heroSubtitle, { color: c.textSecondary }]}>
+              가장 급한 식재료 {urgentItems.length}개
+            </Text>
+            {urgentItems.map((item, idx) => (
               <Pressable
                 key={item.id}
-                style={[styles.urgentCard, { backgroundColor: c.surface }]}
+                style={[
+                  styles.heroCard,
+                  { backgroundColor: c.surface, borderLeftColor: idx === 0 ? c.status.danger : idx === 1 ? c.status.warn : c.status.safe },
+                ]}
                 onPress={() => router.push(`/item/${item.id}`)}
               >
-                <View style={styles.urgentLeft}>
-                  <Text style={[styles.urgentName, { color: c.text }]} numberOfLines={1}>
+                <View style={styles.heroCardLeft}>
+                  <Text style={[styles.heroCardName, { color: c.text }]} numberOfLines={1}>
                     {item.name}
                   </Text>
-                  <Text style={[styles.urgentMeta, { color: c.textSecondary }]} numberOfLines={1}>
+                  <Text style={[styles.heroCardMeta, { color: c.textSecondary }]} numberOfLines={1}>
                     {STORAGE_LOCATION_LABEL[item.location] ?? item.location}
-                    {item.expires_at
-                      ? ` · ${item.dDay != null && item.dDay >= 0 ? `D-${item.dDay}` : `D+${Math.abs(item.dDay ?? 0)}`}`
-                      : ' · 기한 미설정'}
                   </Text>
                 </View>
-                <StatusBadge status={item.status} dDay={item.dDay} size="small" />
+                <View style={styles.heroCardRight}>
+                  <Text
+                    style={[
+                      styles.heroCardDDay,
+                      { color: idx === 0 ? c.status.danger : idx === 1 ? c.status.warn : c.status.safe },
+                    ]}
+                  >
+                    {item.expires_at && item.dDay != null
+                      ? item.dDay >= 0 ? `D-${item.dDay}` : `D+${Math.abs(item.dDay)}`
+                      : '—'}
+                  </Text>
+                </View>
               </Pressable>
             ))}
           </View>
         )}
 
-        {/* 통계 카드 */}
-        <View style={styles.statsContainer}>
-          <View style={styles.statsRow}>
-            <View style={[styles.statCard, { backgroundColor: c.surface }]}>
-              <Text style={[styles.statCount, { color: c.primary }]}>{stats.total}</Text>
-              <Text style={[styles.statLabel, { color: c.textSecondary }]}>전체</Text>
-            </View>
-            <View style={[styles.statCard, { backgroundColor: c.surface }]}>
-              <Text style={[styles.statCount, { color: c.status.expired }]}>{stats.expired}</Text>
-              <Text style={[styles.statLabel, { color: c.textSecondary }]}>만료</Text>
-            </View>
-            <View style={[styles.statCard, { backgroundColor: c.surface }]}>
-              <Text style={[styles.statCount, { color: c.status.danger }]}>{stats.danger}</Text>
-              <Text style={[styles.statLabel, { color: c.textSecondary }]}>오늘</Text>
-            </View>
-            <View style={[styles.statCard, { backgroundColor: c.surface }]}>
-              <Text style={[styles.statCount, { color: c.status.warn }]}>{stats.warn}</Text>
-              <Text style={[styles.statLabel, { color: c.textSecondary }]}>임박</Text>
-            </View>
+        {/* [A1 미니멀 집중형] 컴팩트 4단 통계 — 위험 카드 다음에 최소화된 정보 */}
+        <View style={styles.miniStatsRow}>
+          <View style={styles.miniStat}>
+            <Text style={[styles.miniStatCount, { color: c.text }]}>{stats.total}</Text>
+            <Text style={[styles.miniStatLabel, { color: c.textSecondary }]}>전체</Text>
+          </View>
+          <View style={styles.miniStatDivider} />
+          <View style={styles.miniStat}>
+            <Text style={[styles.miniStatCount, { color: stats.expired > 0 ? c.status.expired : c.text }]}>{stats.expired}</Text>
+            <Text style={[styles.miniStatLabel, { color: c.textSecondary }]}>만료</Text>
+          </View>
+          <View style={styles.miniStatDivider} />
+          <View style={styles.miniStat}>
+            <Text style={[styles.miniStatCount, { color: stats.danger > 0 ? c.status.danger : c.text }]}>{stats.danger}</Text>
+            <Text style={[styles.miniStatLabel, { color: c.textSecondary }]}>오늘</Text>
+          </View>
+          <View style={styles.miniStatDivider} />
+          <View style={styles.miniStat}>
+            <Text style={[styles.miniStatCount, { color: stats.warn > 0 ? c.status.warn : c.text }]}>{stats.warn}</Text>
+            <Text style={[styles.miniStatLabel, { color: c.textSecondary }]}>임박</Text>
           </View>
         </View>
 
-        {/* 스마트 팁 */}
-        {smartTip && (
-          <View style={[styles.tipCard, { backgroundColor: c.surface }]}>
-            <Text style={styles.tipIcon}>{smartTip.icon}</Text>
-            <Text style={[styles.tipText, { color: smartTip.color }]}>{smartTip.text}</Text>
-          </View>
-        )}
-
-        {/* 보관 장소별 현황 */}
+        {/* [A1 미니멀 집중형] 보관 위치 필터 — 가로 칩 한 줄 */}
         {locationSummary.length > 0 && (
           <View style={styles.locationRow}>
             {locationSummary.map((loc) => (
-              <View key={loc.label} style={[styles.locationChip, { backgroundColor: c.surface }]}>
+              <Pressable
+                key={loc.label}
+                style={[styles.locationChip, { backgroundColor: c.surface, borderColor: c.border }]}
+                onPress={() => router.push('/(tabs)/inventory')}
+              >
                 <Text style={styles.locationIcon}>{loc.icon}</Text>
                 <Text style={[styles.locationLabel, { color: c.textSecondary }]}>{loc.label}</Text>
                 <Text style={[styles.locationCount, { color: c.text }]}>{loc.count}</Text>
-              </View>
+              </Pressable>
             ))}
           </View>
         )}
 
-        {/* 카테고리별 보관 현황 */}
-        {categorySummary.length > 0 && (
-          <Pressable
-            style={[styles.categorySummaryCard, { backgroundColor: c.surface }]}
-            onPress={() => router.push('/(tabs)/inventory')}
-          >
-            <Text style={[styles.categorySummaryTitle, { color: c.text }]}>카테고리별 보관</Text>
-            <View style={styles.categorySummaryList}>
-              {categorySummary.map((cat) => (
-                <View key={cat.category} style={styles.categorySummaryItem}>
-                  <Text style={[styles.categorySummaryLabel, { color: c.textSecondary }]}>{cat.label}</Text>
-                  <Text style={[styles.categorySummaryCount, { color: c.text }]}>{cat.count}개</Text>
-                </View>
-              ))}
-            </View>
-          </Pressable>
+        {/* [A1 미니멀 집중형] 스마트 팁 (한 줄, 있을 때만) */}
+        {smartTip && stats.expired === 0 && (
+          <View style={[styles.tipCardMinimal, { backgroundColor: c.surface, borderColor: c.border }]}>
+            <Text style={styles.tipIcon}>{smartTip.icon}</Text>
+            <Text style={[styles.tipText, { color: smartTip.color }]} numberOfLines={2}>{smartTip.text}</Text>
+          </View>
         )}
 
-        {/* 소비 통계 요약 */}
-        {outcomeStats && outcomeStats.total > 0 && (
+        {/* [Council Round 3 합의 P0-2] 소비 통계 — 의미 있는 데이터 (5건+) 일 때만 백분율, 그 미만은 건수만 표시 */}
+        {outcomeStats && outcomeStats.total >= 5 && (
           <Pressable
             style={[styles.outcomeSummary, { backgroundColor: c.surface }]}
             onPress={() => router.push('/(tabs)/stats')}
@@ -255,6 +243,24 @@ export default function HomeScreen() {
                 폐기 {Math.round((outcomeStats.discard / outcomeStats.total) * 100)}%
               </Text>
             </View>
+          </Pressable>
+        )}
+        {/* 데이터 1~4건: 백분율 대신 건수만 표시 (designer 권고: 희소 상태에서 비율은 정보를 과장함) */}
+        {outcomeStats && outcomeStats.total > 0 && outcomeStats.total < 5 && (
+          <Pressable
+            style={[styles.outcomeSummary, { backgroundColor: c.surface }]}
+            onPress={() => router.push('/(tabs)/stats')}
+          >
+            <Text style={[styles.outcomeSummaryTitle, { color: c.text }]}>소비 기록</Text>
+            <View style={styles.outcomeCountRow}>
+              <Text style={[styles.outcomeCountItem, { color: c.status.safe }]}>😋 먹음 {outcomeStats.eat}건</Text>
+              {outcomeStats.discard > 0 && (
+                <Text style={[styles.outcomeCountItem, { color: c.status.danger }]}>🗑 폐기 {outcomeStats.discard}건</Text>
+              )}
+            </View>
+            <Text style={[styles.outcomeCountHint, { color: c.textLight }]}>
+              5건 이상 쌓이면 비율 분석이 시작돼요
+            </Text>
           </Pressable>
         )}
 
@@ -306,22 +312,56 @@ export default function HomeScreen() {
           );
         })}
 
-        {/* 빈 상태 */}
+        {/* [D1 캐릭터 히어로] 빈 상태 */}
         {items.length === 0 && (
-          <View style={styles.emptyUrgent}>
-            <Text style={styles.emptyIcon}>🛒</Text>
-            <Text style={[styles.emptyText, { color: c.text }]}>아직 등록된 식재료가 없어요</Text>
-            <Text style={[styles.emptySubText, { color: c.textSecondary }]}>
-              냉장고에 있는 첫 식재료를 등록하면{'\n'}
-              유통기한 알림과 신선도를 자동으로 관리해드려요
+          <View style={styles.emptyHero}>
+            <View style={[styles.emptyCharacter, { backgroundColor: c.statusBg.safe }]}>
+              <Text style={styles.emptyCharacterIcon}>🧊</Text>
+              <Text style={styles.emptyCharacterFace}>◡ ◡</Text>
+            </View>
+            <Text style={[styles.emptyHeroTitle, { color: c.text }]}>냉장고가 비어있어요</Text>
+            <Text style={[styles.emptyHeroSubtitle, { color: c.textSecondary }]}>
+              첫 식재료를 등록하면{'\n'}유통기한과 신선도를 관리해드려요
             </Text>
+
+            {/* 3단계 온보딩 가이드 */}
+            <View style={styles.stepsList}>
+              <View style={styles.stepItem}>
+                <View style={[styles.stepNumber, { backgroundColor: c.primary }]}>
+                  <Text style={styles.stepNumberText}>1</Text>
+                </View>
+                <View style={styles.stepBody}>
+                  <Text style={[styles.stepTitle, { color: c.text }]}>식재료 등록</Text>
+                  <Text style={[styles.stepDesc, { color: c.textSecondary }]}>템플릿, 영수증 스캔, 직접 입력</Text>
+                </View>
+              </View>
+              <View style={styles.stepItem}>
+                <View style={[styles.stepNumber, { backgroundColor: c.primaryLight }]}>
+                  <Text style={styles.stepNumberText}>2</Text>
+                </View>
+                <View style={styles.stepBody}>
+                  <Text style={[styles.stepTitle, { color: c.text }]}>자동 알림</Text>
+                  <Text style={[styles.stepDesc, { color: c.textSecondary }]}>유통기한 전에 미리 알려드려요</Text>
+                </View>
+              </View>
+              <View style={styles.stepItem}>
+                <View style={[styles.stepNumber, { backgroundColor: c.accent }]}>
+                  <Text style={styles.stepNumberText}>3</Text>
+                </View>
+                <View style={styles.stepBody}>
+                  <Text style={[styles.stepTitle, { color: c.text }]}>먹어야 할 순서대로</Text>
+                  <Text style={[styles.stepDesc, { color: c.textSecondary }]}>가장 급한 재료 3개를 홈에 표시해드려요</Text>
+                </View>
+              </View>
+            </View>
+
             <Pressable
-              style={[styles.emptyCta, { backgroundColor: c.primary }]}
+              style={[styles.emptyHeroCta, { backgroundColor: c.primary }]}
               onPress={() => { Vibration.vibrate(20); router.push('/(tabs)/add'); }}
               accessibilityLabel="첫 식재료 등록하기"
               accessibilityRole="button"
             >
-              <Text style={styles.emptyCtaText}>➕ 첫 식재료 등록하기</Text>
+              <Text style={styles.emptyHeroCtaText}>＋ 첫 식재료 등록하기</Text>
             </Pressable>
           </View>
         )}
@@ -345,23 +385,37 @@ const styles = StyleSheet.create({
   searchResultName: { fontSize: 14, fontWeight: '600' },
   searchResultMeta: { fontSize: 12, marginTop: 2 },
   searchNoResult: { textAlign: 'center', paddingVertical: 12, fontSize: 13 },
-  urgentSection: { marginHorizontal: 12, marginTop: 8, gap: 6 },
-  urgentSectionTitle: { fontSize: 16, fontWeight: '800', marginBottom: 4, marginLeft: 2 },
-  urgentCard: {
-    flexDirection: 'row', alignItems: 'center', padding: 14, borderRadius: 10,
-    elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 3,
+  // [A1 미니멀 집중형] 스타일
+  heroSection: { marginHorizontal: 16, marginTop: 16, gap: 10 },
+  heroTitle: { fontSize: 22, fontWeight: '800', letterSpacing: -0.5 },
+  heroSubtitle: { fontSize: 13, marginTop: -6, marginBottom: 4 },
+  heroCard: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingVertical: 18, paddingHorizontal: 18,
+    borderRadius: 14, borderLeftWidth: 5,
+    elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 6,
   },
-  urgentLeft: { flex: 1, overflow: 'hidden', marginRight: 12, gap: 2 },
-  urgentName: { fontSize: 15, fontWeight: '700' },
-  urgentMeta: { fontSize: 12 },
-  statsContainer: { paddingHorizontal: 12, paddingTop: 8 },
-  statsRow: { flexDirection: 'row', gap: 8 },
-  statCard: {
-    flex: 1, minWidth: 80, borderRadius: 10, padding: 12, alignItems: 'center',
-    elevation: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2,
+  heroCardLeft: { flex: 1, overflow: 'hidden', marginRight: 16, gap: 4 },
+  heroCardName: { fontSize: 18, fontWeight: '700', letterSpacing: -0.3 },
+  heroCardMeta: { fontSize: 13 },
+  heroCardRight: { alignItems: 'flex-end' },
+  heroCardDDay: { fontSize: 22, fontWeight: '800', letterSpacing: -0.5, fontVariant: ['tabular-nums'] },
+  miniStatsRow: {
+    flexDirection: 'row', alignItems: 'center',
+    marginHorizontal: 16, marginTop: 20, paddingVertical: 16,
+    backgroundColor: 'transparent',
   },
-  statCount: { fontSize: 20, fontWeight: '800' },
-  statLabel: { fontSize: 12, marginTop: 4 },
+  miniStat: { flex: 1, alignItems: 'center', gap: 4 },
+  miniStatCount: { fontSize: 20, fontWeight: '800', letterSpacing: -0.5 },
+  miniStatLabel: { fontSize: 11, fontWeight: '500' },
+  miniStatDivider: { width: 1, height: 24, backgroundColor: 'rgba(0,0,0,0.08)' },
+  tipCardMinimal: {
+    flexDirection: 'row', alignItems: 'center',
+    marginHorizontal: 16, marginTop: 12,
+    paddingVertical: 10, paddingHorizontal: 14, borderRadius: 10, gap: 8,
+    borderWidth: 1,
+  },
+  // [Council Round 3 합의 P1-4] statsContainer/statCard/statsRow 미사용 스타일 제거 (A1 미니멀 리팩터링 후)
   quickAddButton: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     marginHorizontal: 12, marginTop: 8, padding: 14, borderRadius: 10, gap: 8,
@@ -371,15 +425,35 @@ const styles = StyleSheet.create({
   section: { marginTop: 10, paddingHorizontal: 12 },
   sectionTitle: { fontSize: 15, fontWeight: '700', marginBottom: 8 },
   moreLink: { fontSize: 13, fontWeight: '600', textAlign: 'center', paddingVertical: 8 },
-  emptyUrgent: { alignItems: 'center', justifyContent: 'center', paddingVertical: 40, gap: 10, paddingHorizontal: 24 },
-  emptyIcon: { fontSize: 48 },
-  emptyText: { fontSize: 17, fontWeight: '700' },
-  emptySubText: { fontSize: 13, textAlign: 'center', lineHeight: 20 },
-  emptyCta: {
-    marginTop: 16, paddingHorizontal: 28, paddingVertical: 14, borderRadius: 12,
-    elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 4,
+  // [D1 캐릭터 히어로] Empty state
+  emptyHero: { alignItems: 'center', justifyContent: 'center', paddingVertical: 24, paddingHorizontal: 24, gap: 8 },
+  emptyCharacter: {
+    width: 120, height: 120, borderRadius: 60,
+    alignItems: 'center', justifyContent: 'center',
+    marginBottom: 12,
   },
-  emptyCtaText: { fontSize: 15, fontWeight: '700', color: '#fff' },
+  emptyCharacterIcon: { fontSize: 56, marginBottom: -10 },
+  emptyCharacterFace: { fontSize: 20, fontWeight: '600', color: '#555' },
+  emptyHeroTitle: { fontSize: 22, fontWeight: '800', letterSpacing: -0.5, marginTop: 8 },
+  emptyHeroSubtitle: { fontSize: 14, textAlign: 'center', lineHeight: 22 },
+  stepsList: {
+    width: '100%', maxWidth: 360, marginTop: 24, gap: 14,
+    paddingHorizontal: 4,
+  },
+  stepItem: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  stepNumber: {
+    width: 32, height: 32, borderRadius: 16,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  stepNumberText: { color: '#fff', fontSize: 14, fontWeight: '800' },
+  stepBody: { flex: 1 },
+  stepTitle: { fontSize: 15, fontWeight: '700' },
+  stepDesc: { fontSize: 12, marginTop: 2 },
+  emptyHeroCta: {
+    marginTop: 28, paddingHorizontal: 32, paddingVertical: 16, borderRadius: 14,
+    elevation: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.18, shadowRadius: 6,
+  },
+  emptyHeroCtaText: { fontSize: 16, fontWeight: '800', color: '#fff', letterSpacing: -0.3 },
   tipCard: {
     flexDirection: 'row', alignItems: 'center', marginHorizontal: 12, marginTop: 8,
     padding: 12, borderRadius: 9, gap: 10,
@@ -387,23 +461,15 @@ const styles = StyleSheet.create({
   },
   tipIcon: { fontSize: 18 },
   tipText: { flex: 1, fontSize: 13, fontWeight: '500' },
-  locationRow: { flexDirection: 'row', paddingHorizontal: 12, paddingTop: 8, gap: 6 },
+  locationRow: { flexDirection: 'row', paddingHorizontal: 16, paddingTop: 8, gap: 8, flexWrap: 'wrap' },
   locationChip: {
-    flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 10, borderRadius: 16, gap: 4,
-    elevation: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2,
+    flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 14, borderRadius: 20, gap: 6,
+    borderWidth: 1,
   },
   locationIcon: { fontSize: 14 },
   locationCount: { fontSize: 13, fontWeight: '700' },
   locationLabel: { fontSize: 12 },
-  categorySummaryCard: {
-    marginHorizontal: 12, marginTop: 8, padding: 14, borderRadius: 10,
-    elevation: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2,
-  },
-  categorySummaryTitle: { fontSize: 15, fontWeight: '700', marginBottom: 10 },
-  categorySummaryList: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  categorySummaryItem: { flexDirection: 'row', alignItems: 'center', gap: 6, minWidth: 80 },
-  categorySummaryLabel: { fontSize: 13 },
-  categorySummaryCount: { fontSize: 13, fontWeight: '700' },
+  // [Council Round 3 합의 P1-4] categorySummary 스타일 제거 (미사용)
   outcomeSummary: {
     marginHorizontal: 12, marginTop: 8, padding: 14, borderRadius: 10,
     elevation: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2,
@@ -414,6 +480,10 @@ const styles = StyleSheet.create({
   outcomeSegment: { height: '100%' },
   outcomeLegend: { flexDirection: 'row', justifyContent: 'space-around', flexWrap: 'wrap', gap: 8 },
   outcomeLegendItem: { fontSize: 12 },
+  // 소비 기록 (1~4건 희소 상태)
+  outcomeCountRow: { flexDirection: 'row', gap: 16, paddingVertical: 4 },
+  outcomeCountItem: { fontSize: 14, fontWeight: '700' },
+  outcomeCountHint: { fontSize: 11, marginTop: 6 },
   fridgeCard: {
     flexDirection: 'row', alignItems: 'center',
     paddingVertical: 14, paddingHorizontal: 14,

@@ -1,1 +1,1 @@
-🛡️ Council-Code 합의 10건 적용: PANTRY 마이그레이션/트랜잭션 일괄폐기/위험재료 TOP3/Empty CTA/Zod스타일 검증/OCR 친화 메시지
+🎨 Council Round 3 합의 7건: C2 swipe 회귀 해소(card 기본)/가짜 통계 가드/locationCounts 필터/죽은 코드 정리/D1 카피 구체화/빈 상태 분리/OUTCOME 색상 토큰화

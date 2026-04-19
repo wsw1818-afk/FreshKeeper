@@ -16,14 +16,16 @@ import {
 } from '@/lib/repository';
 import type { OutcomeStats, CategoryOutcomeStats, MonthlyStats, TopFoodItem } from '@/lib/repository';
 
-const OUTCOME_COLORS = {
-  eat: '#4CAF50',
-  discard: '#F44336',
-  share: '#2196F3',
-};
+// [Council Round 3 합의 P1-7] 다크모드 대응 위해 useColors() 토큰으로 이전, 컴포넌트 내부에서 분기
 
 export default function StatsScreen() {
   const c = useColors();
+  // 다크모드 대응 OUTCOME 색상 (테마 토큰 기반)
+  const OUTCOME_COLORS = {
+    eat: c.status.safe,
+    discard: c.status.danger,
+    share: c.status.longTerm,
+  };
   const [outcomeStats, setOutcomeStats] = useState<OutcomeStats>({ eat: 0, discard: 0, share: 0, total: 0 });
   const [categoryStats, setCategoryStats] = useState<CategoryOutcomeStats[]>([]);
   const [monthlyStats, setMonthlyStats] = useState<MonthlyStats[]>([]);
@@ -153,8 +155,8 @@ export default function StatsScreen() {
             <LegendItem color={OUTCOME_COLORS.discard} label={`폐기 ${discardRate}%`} textColor={c.textSecondary} />
           </View>
           {discardRate > 20 && (
-            <View style={styles.tipBox}>
-              <Text style={styles.tipText}>💡 폐기율이 {discardRate}%입니다. 소량 구매나 빠른 소비를 추천합니다.</Text>
+            <View style={[styles.tipBox, { backgroundColor: c.statusBg.warn }]}>
+              <Text style={[styles.tipText, { color: c.status.warn }]}>💡 폐기율이 {discardRate}%입니다. 소량 구매나 빠른 소비를 추천합니다.</Text>
             </View>
           )}
           {discardRate <= 10 && outcomeStats.total >= 5 && (
@@ -202,8 +204,8 @@ export default function StatsScreen() {
                 <Text style={[styles.rankCount, { color: OUTCOME_COLORS.discard }]}>{item.count}회</Text>
               </View>
             ))}
-            <View style={[styles.tipBox, { backgroundColor: '#FFF3E0' }]}>
-              <Text style={[styles.tipText, { color: '#E65100' }]}>
+            <View style={[styles.tipBox, { backgroundColor: c.statusBg.warn }]}>
+              <Text style={[styles.tipText, { color: c.status.warn }]}>
                 💡 자주 버리는 식재료는 소량으로 구매하거나 냉동 보관을 추천합니다.
               </Text>
             </View>
@@ -393,8 +395,8 @@ const styles = StyleSheet.create({
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   legendDot: { width: 10, height: 10, borderRadius: 5 },
   legendText: { fontSize: 12 },
-  tipBox: { backgroundColor: '#FFF3E0', borderRadius: 8, padding: 10 },
-  tipText: { fontSize: 12, color: '#E65100', textAlign: 'center' },
+  tipBox: { borderRadius: 8, padding: 10 },
+  tipText: { fontSize: 12, textAlign: 'center' },
   avgRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   avgLabel: { fontSize: 14 },
   avgValue: { fontSize: 16, fontWeight: '700' },
